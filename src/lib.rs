@@ -1,6 +1,8 @@
 use std::collections::LinkedList;
 use std::ops::{Sub, Add, Deref};
 use crate::FailReason::ImpossibleMove;
+use std::borrow::Borrow;
+use crate::Color::White;
 
 #[test]
 fn test_create_game() {
@@ -85,7 +87,7 @@ impl Location {
         (*x, *y)
     }
     fn as_abs_tup(&self) -> (i32, i32) {
-        let (x,y) = self.as_tup();
+        let (x, y) = self.as_tup();
         (x.abs(), y.abs())
     }
 }
@@ -109,23 +111,42 @@ impl Sub for Location {
 
 #[derive(Copy, Clone)]
 enum Piece {
-    Rook,
-    Knight,
-    Pawn,
-    King,
-    Queen,
-    Bishop,
+    Rook(Color),
+    Knight(Color),
+    Pawn(Color),
+    King(Color),
+    Queen(Color),
+    Bishop(Color),
+}
+
+#[derive(Copy, Clone, PartialEq)]
+enum Color {
+    White,
+    Black,
+}
+
+impl Piece {
+    fn color(&self) -> &Color {
+        match self {
+            Piece::Rook(c) => { c }
+            Piece::Knight(c) => { c }
+            Piece::Pawn(c) => { c }
+            Piece::King(c) => { c }
+            Piece::Queen(c) => { c }
+            Piece::Bishop(c) => { c }
+        }
+    }
 }
 
 impl Movable for Piece {
     fn squares_moved_over(&self, m: Move) -> Result<Vec<Location>, FailReason> {
         match self {
-            Piece::Rook => { Rook::squares_moved(m) }
-            Piece::Knight => { Knight::squares_moved(m) }
-            Piece::Pawn => { Pawn::squares_moved(m) }
-            Piece::King => { King::squares_moved(m) }
-            Piece::Queen => { Queen::squares_moved(m) }
-            Piece::Bishop => { Bishop::squares_moved(m) }
+            Piece::Rook(_) => { Rook::squares_moved(m) }
+            Piece::Knight(_) => { Knight::squares_moved(m) }
+            Piece::Pawn(_) => { Pawn::squares_moved(m) }
+            Piece::King(_) => { King::squares_moved(m) }
+            Piece::Queen(_) => { Queen::squares_moved(m) }
+            Piece::Bishop(_) => { Bishop::squares_moved(m) }
         }
     }
 }
@@ -167,7 +188,7 @@ impl Board {
     }
 
     fn setup_a_rook(&mut self) {
-        self.squares[0][0] = Some(Piece::Rook)
+        self.squares[0][0] = Some(Piece::Rook(White))
     }
 
     fn make_move(&mut self, m: Move) -> Result<(), FailReason> {
@@ -193,18 +214,37 @@ impl Board {
     }
 
     fn is_valid_move(&self, m: Move) -> bool {
-        unimplemented!()
+        //TODO add special behavior for special moves like castling, en pessant, promoting
+        if let Some(piece) = self.squares[m.from.x as usize][m.from.y as usize] {
+            if let Ok(squares_moved) = piece.squares_moved_over(m) {
+                let bool_vec: Vec<bool> = squares_moved.iter()
+                    .filter(|square| { self.squares[square.x as usize][square.y as usize].is_some() })
+                    .map(|taken| {
+                        if taken != &m.to {
+                            return false;
+                        }
+                        return self.squares[taken.x as usize][taken.y as usize]
+                            .expect("already filtered all the Nones out")
+                            .color() == piece.color();
+                    })
+                    .collect();
+                return *bool_vec.first().unwrap_or(&false) && bool_vec.len() == 1;
+            } else {
+                false
+            }
+        } else {
+            false
+        }
     }
 
     fn do_move(&mut self, m: Move) {
-        let Move { from, to} = m;
+        let Move { from, to } = m;
         {
             let piece = self.squares[from.x as usize][from.y as usize].expect("this should really be a valid move");
             self.squares[to.x as usize][to.y as usize] = Some(piece);
         }
         self.squares[from.x as usize][from.y as usize] = None;
     }
-
 }
 
 #[derive(Copy, Clone)]
@@ -242,13 +282,9 @@ impl Pawn {
         let Move { from, to } = m;
         match (from - to).as_abs_tup() {
             (0, 1) => { Ok(vec![from, to]) }
-            (0, 2) => {
+            (0, y@2) => {
                 if Pawn::is_in_original_position(from) {
-                    if (from-to).y > 0 {
-                        Ok(vec![from, from + Location { x: 0, y: 1 }, to])
-                    } else {
-                        Ok(vec![from, from + Location { x: 0, y: -1 }, to])
-                    }
+                        Ok(vec![from, from + Location { x: 0, y: y/2 }, to])
                 } else {
                     Err(ImpossibleMove)
                 }
@@ -267,8 +303,8 @@ impl Pawn {
         from.x == 1 || from.x == 6
     }
 
-    fn moved_one_diagonal(m: Move)-> bool {
-        let Location {x, y} = m.from - m.to;
+    fn moved_one_diagonal(m: Move) -> bool {
+        let Location { x, y } = m.from - m.to;
         x.abs() == 1 && y.abs() == 1
     }
 }
