@@ -242,9 +242,9 @@ impl Board {
         let piece = self.get_piece_from(&m.from)?;
         let squares_moved = piece.squares_moved_over(m)?;
         let blocked = squares_moved.iter()
-            .filter(|square| { self.is_piece_here(square)})
+            .filter(|square| { self.is_piece_here(square) })
             .map(|taken_square| { self.is_blocking(m, piece, taken_square) })
-            .any(|b| {!b});
+            .any(|b| { !b });
 
         if blocked {
             Ok(())
@@ -254,7 +254,7 @@ impl Board {
     }
 
     fn is_blocking(&self, m: Move, piece: Piece, taken_square: &Location) -> bool {
-        if *taken_square==m.from {
+        if *taken_square == m.from {
             false
         } else {
             !Board::square_is_in_middle_of_path(*taken_square, m) && self.is_opposite_color(piece, taken_square)
@@ -380,11 +380,12 @@ impl Bishop {
         let Move { from, to } = m;
 
         return if from.x - to.x == to.y - to.y {
-            let moves = (from.x..=to.x)
-                .zip(from.y..=to.y)
-                .map(|(x, y)| { Location { x, y } })
-                .collect();
-            Ok(moves)
+            Ok(
+                (from.x..=to.x)
+                    .zip(from.y..=to.y)
+                    .map(|(x, y)| { Location { x, y } })
+                    .collect()
+            )
         } else {
             Err(ImpossibleMove)
         };
@@ -396,16 +397,18 @@ impl Rook {
         let Move { from, to } = m;
         match to - from {
             Location { x, y: 0 } => {
-                let moves = (0..=x).into_iter()
-                    .map(|x| { from + Location { x, y: 0 } })
-                    .collect();
-                Ok(moves)
+                Ok(
+                    (0..=x).into_iter()
+                        .map(|x| { from + Location { x, y: 0 } })
+                        .collect()
+                )
             }
-            Location { x: 0,  y } => {
-                let moves = (0..=y).into_iter()
-                    .map(|y| { from + Location { x: 0, y } })
-                    .collect();
-                Ok(moves)
+            Location { x: 0, y } => {
+                Ok(
+                    (0..=y).into_iter()
+                        .map(|y| { from + Location { x: 0, y } })
+                        .collect()
+                )
             }
 
             _ => Err(ImpossibleMove)
