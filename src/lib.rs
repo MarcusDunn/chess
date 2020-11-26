@@ -69,6 +69,7 @@ struct Board {
     past_moves: LinkedList<Move>,
 }
 
+#[derive(Copy, Clone, Debug)]
 struct Move {
     from: Location,
     to: Location,
@@ -78,6 +79,17 @@ struct Move {
 struct Location {
     x: i32,
     y: i32,
+}
+
+impl Location {
+    fn as_tup(&self) -> (i32, i32) {
+        let Location { x, y } = self;
+        (*x, *y)
+    }
+    fn as_abs_tup(&self) -> (i32, i32) {
+        let Location { x, y } = self;
+        ((*x).abs(), (*y).abs())
+    }
 }
 
 impl PartialEq for Location {
@@ -186,7 +198,37 @@ impl Knight {
 
 impl Pawn {
     fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
-        unimplemented!()
+        let Move { from, to } = m;
+        match (from - to).as_abs_tup() {
+            (0, 1) => { Ok(vec![from, to]) }
+            (0, 2) => {
+                if Pawn::is_in_original_position(from) {
+                    if (from-to).y > 0 {
+                        Ok(vec![from, from + Location { x: 0, y: 1 }, to])
+                    } else {
+                        Ok(vec![from, from + Location { x: 0, y: -1 }, to])
+                    }
+                } else {
+                    Err(ImpossibleMove)
+                }
+            }
+            _ => {
+                if Pawn::moved_one_diagonal(m) {
+                    Ok(vec![from, to])
+                } else {
+                    Err(ImpossibleMove)
+                }
+            }
+        }
+    }
+
+    fn is_in_original_position(from: Location) -> bool {
+        from.x == 1 || from.x == 6
+    }
+
+    fn moved_one_diagonal(m: Move)-> bool {
+        let Location {x, y} = m.from - m.to;
+        x.abs() == 1 && y.abs() == 1
     }
 }
 
