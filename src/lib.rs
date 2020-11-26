@@ -87,8 +87,8 @@ impl Location {
         (*x, *y)
     }
     fn as_abs_tup(&self) -> (i32, i32) {
-        let Location { x, y } = self;
-        ((*x).abs(), (*y).abs())
+        let (x,y) = self.as_tup();
+        (x.abs(), y.abs())
     }
 }
 
@@ -109,6 +109,7 @@ impl Sub for Location {
     }
 }
 
+#[derive(Copy, Clone)]
 enum Piece {
     Rook,
     Knight,
@@ -170,18 +171,48 @@ impl Board {
     fn setup_a_rook(&mut self) {
         self.squares[0][0] = Some(Piece::Rook)
     }
+
+    fn make_move(&mut self, m: Move) -> Result<(), FailReason> {
+        if self.is_valid_move(m) {
+            self.past_moves.push_front(m);
+            self.do_move(m);
+            Ok(())
+        } else {
+            Err(ImpossibleMove)
+        }
+    }
+
+    fn is_valid_move(&self, m: Move) -> bool {
+        unimplemented!()
+    }
+
+    fn do_move(&mut self, m: Move) {
+        let Move { from, to} = m;
+        {
+            let piece = self.squares[from.x as usize][from.y as usize].expect("this should really be a valid move");
+            self.squares[to.x as usize][to.y as usize] = Some(piece);
+        }
+        self.squares[from.x as usize][from.y as usize] = None;
+    }
+
 }
 
+#[derive(Copy, Clone)]
 struct Knight {}
 
+#[derive(Copy, Clone)]
 struct Pawn {}
 
+#[derive(Copy, Clone)]
 struct King {}
 
+#[derive(Copy, Clone)]
 struct Queen {}
 
+#[derive(Copy, Clone)]
 struct Bishop {}
 
+#[derive(Copy, Clone)]
 struct Rook {}
 
 impl Knight {
