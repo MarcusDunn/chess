@@ -179,13 +179,12 @@ impl Knight {
     fn squares_moved_over(m: Move) -> Result<Vec<Location>, FailReason> {
         let Move { from, to } = m;
 
-        match ((to-from).x.abs(), (to-from).y.abs()) {
-            (1, 2) => {Ok(vec!(m.to))},
-            (2, 1) => {Ok(vec!(m.to))},
+        match ((to - from).x.abs(), (to - from).y.abs()) {
+            (1, 2) => { Ok(vec!(m.to)) }
+            (2, 1) => { Ok(vec!(m.to)) }
             _ => Err(ImpossibleMove)
         }
     }
-
 }
 
 impl Pawn {
@@ -196,8 +195,7 @@ impl Pawn {
     fn squares_moved_over(m: Move) -> Result<Vec<Location>, FailReason> {
         unimplemented!()
     }
-
-    }
+}
 
 impl King {
     fn new() -> Self {
@@ -207,8 +205,7 @@ impl King {
     fn squares_moved_over(m: Move) -> Result<Vec<Location>, FailReason> {
         unimplemented!()
     }
-
-    }
+}
 
 impl Queen {
     fn new() -> Self {
@@ -224,7 +221,6 @@ impl Bishop {
     fn squares_moved_over(m: Move) -> Result<Vec<Location>, FailReason> {
         unimplemented!()
     }
-
 }
 
 impl Rook {
