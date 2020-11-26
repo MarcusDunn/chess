@@ -1,8 +1,6 @@
 use std::collections::LinkedList;
 use std::ops::{Sub, Add, Deref};
-use std::convert::TryInto;
 use crate::FailReason::ImpossibleMove;
-use std::iter::Zip;
 
 #[test]
 fn test_create_game() {
@@ -179,6 +177,18 @@ impl Board {
             Ok(())
         } else {
             Err(ImpossibleMove)
+        }
+    }
+
+    fn setup(&mut self) {
+        unimplemented!()
+    }
+
+    fn back_one_move(&mut self) {
+        self.past_moves.pop_front();
+        self.setup();
+        for m in self.past_moves.clone() { // fix clone somehow
+            self.do_move(m)
         }
     }
 
