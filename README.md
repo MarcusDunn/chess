@@ -1,2 +1,2 @@
 # chess
-a chess game to learn rust
+a chess game to learn rust, please don't use this anywhere.
