@@ -2,6 +2,7 @@ use std::collections::LinkedList;
 use std::ops::{Sub, Add, Deref};
 use std::convert::TryInto;
 use crate::FailReason::ImpossibleMove;
+use std::iter::Zip;
 
 #[test]
 fn test_create_game() {
@@ -98,22 +99,22 @@ impl Sub for Location {
 
 enum Piece {
     Rook,
-    // Knight,
-    // Pawn,
-    // King,
-    // Queen,
-    // Bishop,
+    Knight,
+    Pawn,
+    King,
+    Queen,
+    Bishop,
 }
 
 impl Movable for Piece {
     fn squares_moved_over(&self, m: Move) -> Result<Vec<Location>, FailReason> {
         match self {
-            Piece::Rook => { Rook::squares_moved_over(m) }
-            // Piece::Knight => {Knight::squares_moved_over(m)}
-            // Piece::Pawn => {Pawn::squares_moved_over(m)}
-            // Piece::King => {King::squares_moved_over(m)}
-            // Piece::Queen => {Queen::squares_moved_over(m)}
-            // Piece::Bishop => {Bishop::squares_moved_over(m)}
+            Piece::Rook => { Rook::squares_moved(m) }
+            Piece::Knight => { Knight::squares_moved(m) }
+            Piece::Pawn => { Pawn::squares_moved(m) }
+            Piece::King => { King::squares_moved(m) }
+            Piece::Queen => { Queen::squares_moved(m) }
+            Piece::Bishop => { Bishop::squares_moved(m) }
         }
     }
 }
@@ -172,11 +173,7 @@ struct Bishop {}
 struct Rook {}
 
 impl Knight {
-    fn new() -> Self {
-        Knight {}
-    }
-
-    fn squares_moved_over(m: Move) -> Result<Vec<Location>, FailReason> {
+    fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
         let Move { from, to } = m;
 
         match ((to - from).x.abs(), (to - from).y.abs()) {
@@ -188,38 +185,49 @@ impl Knight {
 }
 
 impl Pawn {
-    fn new() -> Self {
-        Pawn {}
-    }
-
-    fn squares_moved_over(m: Move) -> Result<Vec<Location>, FailReason> {
+    fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
         unimplemented!()
     }
 }
 
 impl King {
-    fn new() -> Self {
-        King {}
-    }
+    fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
+        let Move { from, to } = m;
 
-    fn squares_moved_over(m: Move) -> Result<Vec<Location>, FailReason> {
-        unimplemented!()
+        match ((to - from).x.abs(), (to - from).y.abs()) {
+            (1, 0) => { Ok(vec!(m.to)) }
+            (0, 1) => { Ok(vec!(m.to)) }
+            (1, 1) => { Ok(vec!(m.to)) }
+            _ => Err(ImpossibleMove)
+        }
     }
 }
 
 impl Queen {
-    fn new() -> Self {
-        Queen {}
+    fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
+        if let Ok(rookResult) = Rook::squares_moved(m) {
+            Ok(rookResult)
+        } else if let Ok(bishopResult) = Bishop::squares_moved(m) {
+            Ok(bishopResult)
+        } else {
+            Err(ImpossibleMove)
+        }
     }
 }
 
 impl Bishop {
-    fn new() -> Self {
-        Bishop {}
-    }
+    fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
+        let Move { from, to } = m;
 
-    fn squares_moved_over(m: Move) -> Result<Vec<Location>, FailReason> {
-        unimplemented!()
+        return if from.x - to.x == to.y - to.y {
+            let moves = (from.x..=to.x)
+                .zip(from.y..=to.y)
+                .map(|(x, y)| { Location { x, y } })
+                .collect();
+            Ok(moves)
+        } else {
+            Err(ImpossibleMove)
+        };
     }
 }
 
@@ -228,7 +236,7 @@ impl Rook {
         Rook {}
     }
 
-    fn squares_moved_over(m: Move) -> Result<Vec<Location>, FailReason> {
+    fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
         let Move { from, to } = m;
         match to - from {
             Location { x: x, y: 0 } => {
