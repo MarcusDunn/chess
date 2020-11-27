@@ -240,32 +240,31 @@ impl Board {
         }
         //TODO add special behavior for special moves like castling, en pessant, promoting
         let piece = self.get_piece_from(&m.from)?;
-        let squares_moved = piece.squares_moved_over(m)?;
-        let blocked = squares_moved.iter()
-            .filter(|square| { self.is_piece_here(square) })
-            .map(|taken_square| { self.is_blocking(m, piece, taken_square) })
-            .any(|b| { !b });
+        let blocked = piece
+            .squares_moved_over(m)?
+            .iter()
+            .any(|square| { self.is_blocked(m, piece, square) });
+
 
         if blocked {
-            Ok(())
-        } else {
             Err(FailReason::Blocked)
+        } else {
+            Ok(())
         }
     }
 
-    fn is_blocking(&self, m: Move, piece: Piece, taken_square: &Location) -> bool {
-        if *taken_square == m.from {
+    fn is_blocked(&self, m: Move, piece: Piece, square: &Location) -> bool {
+        if self.is_piece_here(&square) || *square == m.from {
             false
         } else {
-            !Board::square_is_in_middle_of_path(*taken_square, m) && self.is_opposite_color(piece, taken_square)
+            !Board::square_is_in_middle_of_path(*square, m) && self.is_opposite_color(piece, square).unwrap_or_else(|_| false )
         }
     }
 
-    fn is_opposite_color(&self, piece: Piece, taken_square: &Location) -> bool {
-        self.get_piece_from(taken_square)
-            .expect("already filtered all the empty squares out")
+    fn is_opposite_color(&self, piece: Piece, taken_square: &Location) -> Result<bool, FailReason> {
+        Ok(self.get_piece_from(taken_square)?
             .color()
-            .ne(piece.color())
+            .ne(piece.color()))
     }
 
     fn square_is_in_middle_of_path(taken_square: Location, m: Move) -> bool {
@@ -283,7 +282,7 @@ impl Board {
     fn do_move(&mut self, m: Move) {
         let Move { from, to } = m;
         {
-            let piece = self.squares[from.x as usize][from.y as usize].expect("this should really be a valid move");
+            let piece = self.get_piece_from(&from).expect("this should really be a valid move");
             self.squares[to.x as usize][to.y as usize] = Some(piece);
         }
         self.squares[from.x as usize][from.y as usize] = None;
@@ -313,8 +312,7 @@ impl Knight {
         let Move { from, to } = m;
 
         match ((to - from).x.abs(), (to - from).y.abs()) {
-            (1, 2) => { Ok(vec!(m.to)) }
-            (2, 1) => { Ok(vec!(m.to)) }
+            (1, 2) | (2, 1) => Ok(vec!(m.to)),
             _ => Err(ImpossibleMove)
         }
     }
@@ -323,15 +321,16 @@ impl Knight {
 impl Pawn {
     fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
         let Move { from, to } = m;
-        match (from - to).as_abs_tup() {
-            (0, 1) => { Ok(vec![from, to]) }
-            (0, y @ 2) => {
+        match (from - to).as_tup() {
+            (0, 1) | (0, -1) => { Ok(vec![from, to]) }
+            (0, y @ 2) | (0, y @ -2) => {
                 if Pawn::is_in_original_position(from) {
                     Ok(vec![from, from + Location { x: 0, y: y / 2 }, to])
                 } else {
                     Err(ImpossibleMove)
                 }
             }
+
             _ => {
                 if Pawn::moved_one_diagonal(m) {
                     Ok(vec![from, to])
@@ -378,17 +377,16 @@ impl Queen {
 impl Bishop {
     fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
         let Move { from, to } = m;
-
-        return if from.x - to.x == to.y - to.y {
-            Ok(
-                (from.x..=to.x)
-                    .zip(from.y..=to.y)
-                    .map(|(x, y)| { Location { x, y } })
-                    .collect()
-            )
+        return if Bishop::is_diagonal(m) {
+            Ok((from.x..=to.x).zip(from.y..=to.y).map(|(x, y)| { Location { x, y } }).collect())
         } else {
             Err(ImpossibleMove)
         };
+    }
+
+    fn is_diagonal(m: Move) -> bool {
+        let Move { from, to } = m;
+        from.x - to.x == to.y - to.y
     }
 }
 
@@ -396,21 +394,8 @@ impl Rook {
     fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
         let Move { from, to } = m;
         match to - from {
-            Location { x, y: 0 } => {
-                Ok(
-                    (0..=x).into_iter()
-                        .map(|x| { from + Location { x, y: 0 } })
-                        .collect()
-                )
-            }
-            Location { x: 0, y } => {
-                Ok(
-                    (0..=y).into_iter()
-                        .map(|y| { from + Location { x: 0, y } })
-                        .collect()
-                )
-            }
-
+            Location { x, y: 0 } => Ok((0..=x).into_iter().map(|x| { from + Location { x, y: 0 } }).collect()),
+            Location { x: 0, y } => Ok((0..=y).into_iter().map(|y| { from + Location { x: 0, y } }).collect()),
             _ => Err(ImpossibleMove)
         }
     }
