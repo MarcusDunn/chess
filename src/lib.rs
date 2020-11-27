@@ -169,6 +169,41 @@ fn test_move_pawn_illegal_1() {
 }
 
 #[test]
+fn test_move_pawn_illegal_2() {
+    let piece = Piece::Pawn(Color::Black);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 1, y: 1 };
+    Tester::place_and_move_illegal(piece, from, to);
+}
+
+#[test]
+fn test_move_pawn_legal_2() {
+    let piece = Piece::Pawn(Color::White);
+    let target = Piece::Pawn(Color::Black);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 1, y: 1 };
+    Tester::place_target_and_piece_then_move_legal(piece, target, from, to);
+}
+
+#[test]
+fn test_move_pawn_legal_3() {
+    let piece = Piece::Pawn(Color::Black);
+    let target = Piece::Pawn(Color::White);
+    let from = Location { x: 1, y: 1 };
+    let to = Location { x: 0, y: 0 };
+    Tester::place_target_and_piece_then_move_legal(piece, target, from, to);
+}
+
+#[test]
+fn test_move_pawn_illegal_3() {
+    let piece = Piece::Pawn(Color::Black);
+    let target = Piece::Pawn(Color::Black);
+    let from = Location { x: 1, y: 1 };
+    let to = Location { x: 0, y: 0 };
+    Tester::place_target_and_piece_then_move_illegal(piece, target, from, to);
+}
+
+#[test]
 fn test_move_king_legal_1() {
     let piece = Piece::King(Color::White);
     let from = Location { x: 0, y: 0 };
@@ -226,6 +261,21 @@ impl Tester {
                 .squares_moved_over(Move { from, to })
                 .unwrap()
         )
+    }
+
+    fn place_target_and_piece_then_move_legal(piece: Piece, target: Piece, from: Location, to: Location) {
+        let mut board = Board::new();
+        board.place(piece, from).unwrap();
+        board.place(target, to).unwrap();
+        board.make_move(Move { from, to }).unwrap();
+        board.get_piece_from(&to).unwrap();
+    }
+
+    fn place_target_and_piece_then_move_illegal(piece: Piece, target: Piece, from: Location, to: Location) {
+        let mut board = Board::new();
+        board.place(piece, from).unwrap();
+        board.place(target, to).unwrap();
+        board.make_move(Move { from, to }).unwrap_err();
     }
 }
 
@@ -289,7 +339,7 @@ enum Piece {
     Bishop(Color),
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 enum Color {
     White,
     Black,
@@ -334,15 +384,15 @@ impl Add for Location {
 
 #[derive(Debug, PartialOrd, PartialEq)]
 enum FailReason {
-    ImpossibleMove,
-    NoPieceHere,
-    Blocked,
-    OutOfBounds,
+    ImpossibleMove(String),
+    NoPieceHere(String),
+    Blocked(String),
+    OutOfBounds(String),
 }
 
 impl From<NoneError> for FailReason {
     fn from(_: NoneError) -> Self {
-        FailReason::NoPieceHere
+        FailReason::NoPieceHere(String::from("no piece found when trying to unwrap a value from the board"))
     }
 }
 
@@ -368,38 +418,87 @@ impl Board {
     }
 
     fn make_move(&mut self, m: Move) -> Result<(), FailReason> {
-        println!("moving from: {:?}, to: {:?}", m.from, m.to);
         self.is_valid_move(m)?;
-        println!("is valid move!");
         self.past_moves.push_front(m);
         self.do_move(m);
         Ok(())
     }
 
     fn is_valid_move(&self, m: Move) -> Result<(), FailReason> {
-        if !m.from.is_in_bounds() || !m.to.is_in_bounds() {
-            return Err(FailReason::OutOfBounds);
-        }
+        Board::do_bounds_check(m)?;
         //TODO add special behavior for special moves like castling, en pessant, promoting
         let piece = self.get_piece_from(&m.from)?;
-        let blocked = piece
-            .squares_moved_over(m)?
-            .iter()
+        self.do_piece_specific_checks(&m, piece);
+        let blocked = piece.squares_moved_over(m)?.iter()
             .any(|square| { self.is_blocked(m, piece, square) });
 
 
         if blocked {
-            Err(FailReason::Blocked)
+            Err(FailReason::Blocked(String::from("despite the move being valid, the piece was blocked midway through or by its own peice at the goal position")))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn do_piece_specific_checks(&self, m: &Move, piece: Piece) -> Result<(), FailReason> {
+        match piece {
+            Piece::Pawn(c) => self.is_valid_pawn_move(&m, &c),
+            _ => Ok(())
+        }
+    }
+
+    fn is_valid_pawn_move(&self, m: &Move, c: &Color) -> Result<(), FailReason> {
+        if Pawn::is_attacking_validly(*m, &c) {
+            let target = self.get_piece_from(&m.to)?;
+            match self.is_opposite_color(target, &m.from) {
+                Ok(is_opp) if is_opp => Ok(()),
+                Ok(is_opp) if !is_opp => Err(FailReason::ImpossibleMove(String::from("not a valid move for a pawn, you've tried moving diagonally into your own peice"))),
+                Err(err) => Err(err),
+                _ => unreachable!("covered both true and false cases for Ok and all Err")
+            }
+        } else {
+            Ok(())
+        }
+    }
+
+    fn do_bounds_check(m: Move) -> Result<(), FailReason> {
+        if !m.from.is_in_bounds() || !m.to.is_in_bounds() {
+            return Err(FailReason::OutOfBounds(String::from("invalid move, ranges for location are 0-7 inclusive")));
         } else {
             Ok(())
         }
     }
 
     fn is_blocked(&self, m: Move, piece: Piece, square: &Location) -> bool {
-        if self.is_piece_here(&square) || *square == m.from {
-            false
+        if Board::square_is_in_middle_of_path(*square, m) {
+            //println!("square is in middle of path");
+            if self.get_piece_from(square).is_some() {
+                //println!("square contains piece, BLOCKED");
+                true
+            } else {
+                //println!("square does not contain piece");
+                false
+            }
+        } else if self.get_piece_from(square).is_some() {
+            //println!("square is not in middle of path and contains something");
+            if m.from == *square {
+                //println!("lol its just me");
+                false
+            } else if m.to == *square {
+                //println!("we're attacking this bad boy now");
+                if self.is_opposite_color(piece, square).unwrap() {
+                    //println!("we can attack as we are different colours");
+                    false
+                } else {
+                    //println!("we can not attack as we are the same color, BLOCKED");
+                    true
+                }
+            } else {
+                panic!("should not be possible")
+            }
         } else {
-            !Board::square_is_in_middle_of_path(*square, m) && self.is_opposite_color(piece, square).unwrap_or_else(|_| false)
+            //println!("square is not in middle of path and nothing is here");
+            false
         }
     }
 
@@ -454,7 +553,7 @@ impl Knight {
         let diff = m.to - m.from;
         match (diff.x.abs(), diff.y.abs()) {
             (1, 2) | (2, 1) => Ok(vec!(m.from, m.to)),
-            _ => Err(FailReason::ImpossibleMove)
+            _ => Err(FailReason::ImpossibleMove(String::from("invalid move for a knight")))
         }
     }
 }
@@ -464,30 +563,41 @@ impl Pawn {
         let Move { from, to } = m;
         match (from - to).as_tup() {
             (0, y @ 1) | (0, y @ -1) => {
-                if Pawn::is_right_direction(y, c) {
+                if Pawn::is_right_direction(m, c) {
                     Ok(vec![from, to])
                 } else {
-                    Err(FailReason::ImpossibleMove)
+                    Err(FailReason::ImpossibleMove(String::from("invalid move for a pawn, must move forward")))
                 }
             }
             (0, y @ 2) | (0, y @ -2) => {
                 if Pawn::is_in_original_position(from, c) {
                     Ok(vec![from, from + Location { x: 0, y: y / 2 }, to])
                 } else {
-                    Err(FailReason::ImpossibleMove)
+                    Err(FailReason::ImpossibleMove(String::from("invalid move for a pawn, cannot move two forward if already moved")))
                 }
             }
             (x, y) => {
-                if Pawn::moved_one_diagonal(x, y) {
+                if Pawn::moved_one_diagonal(x, y) && Pawn::is_attacking_validly(m, c) {
                     Ok(vec![from, to])
                 } else {
-                    Err(FailReason::ImpossibleMove)
+                    println!("{:?}, {:?}", m, *c);
+                    Err(FailReason::ImpossibleMove(String::from("invalid move for a pawn")))
                 }
             }
         }
     }
 
-    fn is_right_direction(y: i32, color: &Color) -> bool {
+    fn is_attacking_validly(m: Move, c: &Color) -> bool {
+        let Location {x: diff_x, y: diff_y} = m.from-m.to;
+        diff_x.abs() == 1 && diff_y.abs() == 1;
+        match c {
+            Color::White => diff_y == -1,
+            Color::Black => diff_y == 1,
+        }
+    }
+
+    fn is_right_direction(m: Move, color: &Color) -> bool {
+        let Location {x: _, y} = m.from-m.to;
         match color {
             Color::White => y == -1,
             Color::Black => y == 1,
@@ -511,8 +621,8 @@ impl King {
         let Move { from, to } = m;
 
         match ((to - from).x.abs(), (to - from).y.abs()) {
-            (1, 0) | (0, 1) | (1, 1) => { Ok(vec!(m.to)) }
-            _ => Err(FailReason::ImpossibleMove)
+            (1, 0) | (0, 1) | (1, 1) => { Ok(vec!(m.from, m.to)) }
+            _ => Err(FailReason::ImpossibleMove(String::from("invalid move for a knight")))
         }
     }
 }
@@ -524,7 +634,7 @@ impl Queen {
         } else if let Ok(bishop_result) = Bishop::squares_moved(m, c) {
             Ok(bishop_result)
         } else {
-            Err(FailReason::ImpossibleMove)
+            Err(FailReason::ImpossibleMove(String::from("invalid move for a queen")))
         }
     }
 }
@@ -533,26 +643,32 @@ impl Bishop {
     fn squares_moved(m: Move, _c: &Color) -> Result<Vec<Location>, FailReason> {
         let Move { from, to } = m;
         return if Bishop::is_diagonal(m) {
-            Ok(
-                match from - to {
-                    loc if loc.x > 0 && loc.y > 0 => {
-                        ((to.x..=from.x).rev()).zip((to.x..=from.x).rev())
-                    }
-                    loc if loc.x > 0 && loc.y < 0 => {
-                        (to.x..=from.x).rev().zip(from.y..=to.y)
-                    }
-                    loc if loc.x < 0 && loc.y > 0 => {
-                        (from.x..=to.x).zip((to.y..=from.y).rev())
-                    }
-                    loc if loc.x < 0 && loc.y < 0 => {
-                        (from.x..=to.x).zip((from.y..=to.y))
-                    }
-                    _ => unreachable!("from-to should not be 0 at x or y")
+            let moves: Vec<(i32, i32)> = match from - to {
+                loc if loc.x > 0 && loc.y > 0 => {
+                    ((to.x..=from.x).rev())
+                        .zip((to.x..=from.x).rev())
+                        .collect()
                 }
-                    .map(|(x, y)| { Location { x: *x, y: *y } }).collect()
-            )
+                loc if loc.x > 0 && loc.y < 0 => {
+                    (to.x..=from.x).rev()
+                        .zip(from.y..=to.y)
+                        .collect()
+                }
+                loc if loc.x < 0 && loc.y > 0 => {
+                    (from.x..=to.x)
+                        .zip((to.y..=from.y).rev())
+                        .collect()
+                }
+                loc if loc.x < 0 && loc.y < 0 => {
+                    (from.x..=to.x)
+                        .zip((from.y..=to.y))
+                        .collect()
+                }
+                _ => unreachable!("from-to should not be 0 at x or y")
+            };
+            Ok(moves.iter().map(|(x, y)| { Location { x: *x, y: *y } }).collect())
         } else {
-            Err(FailReason::ImpossibleMove)
+            Err(FailReason::ImpossibleMove(String::from("invalid move for a bishop")))
         };
     }
 
@@ -568,7 +684,7 @@ impl Rook {
         match to - from {
             Location { x, y: 0 } => Ok((0..=x).into_iter().map(|x| { from + Location { x, y: 0 } }).collect()),
             Location { x: 0, y } => Ok((0..=y).into_iter().map(|y| { from + Location { x: 0, y } }).collect()),
-            _ => Err(FailReason::ImpossibleMove)
+            _ => Err(FailReason::ImpossibleMove(String::from("invalid move for a rook")))
         }
     }
 }
