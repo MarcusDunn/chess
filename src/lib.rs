@@ -159,14 +159,14 @@ impl Tester {
     fn place_and_move_legal(p: Piece, from: Location, to: Location) {
         let mut board = Board::new();
         board.place(p, from).unwrap();
-        board.make_move(Move { from, to, }).unwrap();
+        board.make_move(Move { from, to }).unwrap();
         board.get_piece_from(&to).unwrap();
     }
 
     fn place_and_move_illegal(p: Piece, from: Location, to: Location) {
         let mut board = Board::new();
         board.place(Piece::King(Color::Black), from).unwrap();
-        board.make_move(Move { from, to, }).unwrap_err();
+        board.make_move(Move { from, to }).unwrap_err();
     }
 }
 
@@ -252,12 +252,12 @@ impl Piece {
 impl Movable for Piece {
     fn squares_moved_over(&self, m: Move) -> Result<Vec<Location>, FailReason> {
         match self {
-            Piece::Rook(_) => { Rook::squares_moved(m) }
-            Piece::Knight(_) => { Knight::squares_moved(m) }
-            Piece::Pawn(_) => { Pawn::squares_moved(m) }
-            Piece::King(_) => { King::squares_moved(m) }
-            Piece::Queen(_) => { Queen::squares_moved(m) }
-            Piece::Bishop(_) => { Bishop::squares_moved(m) }
+            Piece::Rook(c) => { Rook::squares_moved(m, c) }
+            Piece::Knight(c) => { Knight::squares_moved(m, c) }
+            Piece::Pawn(c) => { Pawn::squares_moved(m, c) }
+            Piece::King(c) => { King::squares_moved(m, c) }
+            Piece::Queen(c) => { Queen::squares_moved(m, c) }
+            Piece::Bishop(c) => { Bishop::squares_moved(m, c) }
         }
     }
 }
@@ -391,7 +391,7 @@ struct Bishop;
 struct Rook;
 
 impl Knight {
-    fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
+    fn squares_moved(m: Move, _c: &Color) -> Result<Vec<Location>, FailReason> {
         let diff = m.to - m.from;
         match (diff.x.abs(), diff.y.abs()) {
             (1, 2) | (2, 1) => Ok(vec!(m.to)),
@@ -401,19 +401,25 @@ impl Knight {
 }
 
 impl Pawn {
-    fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
+    fn squares_moved(m: Move, c: &Color) -> Result<Vec<Location>, FailReason> {
         let Move { from, to } = m;
         match (from - to).as_tup() {
-            (0, 1) | (0, -1) => { Ok(vec![from, to]) }
+            (0, y @ 1) | (0, y @ -1) => {
+                if Pawn::is_right_direction(y, c) {
+                    Ok(vec![from, to])
+                } else {
+                    Err(FailReason::ImpossibleMove)
+                }
+            }
             (0, y @ 2) | (0, y @ -2) => {
-                if Pawn::is_in_original_position(from) {
+                if Pawn::is_in_original_position(from, c) {
                     Ok(vec![from, from + Location { x: 0, y: y / 2 }, to])
                 } else {
                     Err(FailReason::ImpossibleMove)
                 }
             }
-            (x,y) => {
-                if Pawn::moved_one_diagonal(x,y) {
+            (x, y) => {
+                if Pawn::moved_one_diagonal(x, y) {
                     Ok(vec![from, to])
                 } else {
                     Err(FailReason::ImpossibleMove)
@@ -422,8 +428,18 @@ impl Pawn {
         }
     }
 
-    fn is_in_original_position(from: Location) -> bool {
-        from.x == 1 || from.x == 6
+    fn is_right_direction(y: i32, color: &Color) -> bool {
+        match color {
+            Color::White => y == -1,
+            Color::Black => y == 1,
+        }
+    }
+
+    fn is_in_original_position(from: Location, color: &Color) -> bool {
+        match color {
+            Color::White => from.y == 1,
+            Color::Black => from.y == 6,
+        }
     }
 
     fn moved_one_diagonal(x: i32, y: i32) -> bool {
@@ -432,7 +448,7 @@ impl Pawn {
 }
 
 impl King {
-    fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
+    fn squares_moved(m: Move, _c: &Color) -> Result<Vec<Location>, FailReason> {
         let Move { from, to } = m;
 
         match ((to - from).x.abs(), (to - from).y.abs()) {
@@ -443,10 +459,10 @@ impl King {
 }
 
 impl Queen {
-    fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
-        if let Ok(rook_result) = Rook::squares_moved(m) {
+    fn squares_moved(m: Move, c: &Color) -> Result<Vec<Location>, FailReason> {
+        if let Ok(rook_result) = Rook::squares_moved(m, c) {
             Ok(rook_result)
-        } else if let Ok(bishop_result) = Bishop::squares_moved(m) {
+        } else if let Ok(bishop_result) = Bishop::squares_moved(m, c) {
             Ok(bishop_result)
         } else {
             Err(FailReason::ImpossibleMove)
@@ -455,7 +471,7 @@ impl Queen {
 }
 
 impl Bishop {
-    fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
+    fn squares_moved(m: Move, _c: &Color) -> Result<Vec<Location>, FailReason> {
         let Move { from, to } = m;
         return if Bishop::is_diagonal(m) {
             Ok((from.x..=to.x).zip(from.y..=to.y).map(|(x, y)| { Location { x, y } }).collect())
@@ -471,7 +487,7 @@ impl Bishop {
 }
 
 impl Rook {
-    fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
+    fn squares_moved(m: Move, _c: &Color) -> Result<Vec<Location>, FailReason> {
         let Move { from, to } = m;
         match to - from {
             Location { x, y: 0 } => Ok((0..=x).into_iter().map(|x| { from + Location { x, y: 0 } }).collect()),
