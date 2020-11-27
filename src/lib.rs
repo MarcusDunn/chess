@@ -2,9 +2,7 @@
 
 use std::collections::LinkedList;
 use std::ops::{Sub, Add, Deref, Not};
-use crate::FailReason::ImpossibleMove;
 use std::borrow::Borrow;
-use crate::Color::White;
 use std::option::NoneError;
 
 #[test]
@@ -50,23 +48,6 @@ fn test_squared_moved_legal() {
 }
 
 #[test]
-fn test_move_illegally() {
-    let mut board = Board::new();
-    board.setup_a_rook().unwrap();
-    let squares = match &board.squares[0][0] {
-        None => { panic!("should be a rook here") }
-        Some(rook) => {
-            rook.deref()
-                .squares_moved_over(Move {
-                    from: Location { x: 0, y: 0 },
-                    to: Location { x: 7, y: 7 },
-                })
-        }
-    };
-    assert_eq!(squares.err().unwrap(), FailReason::ImpossibleMove)
-}
-
-#[test]
 fn test_move_piece_out_of_bound() {
     let mut board = Board::new();
     board.setup_a_rook().unwrap();
@@ -77,14 +58,116 @@ fn test_move_piece_out_of_bound() {
 }
 
 #[test]
-fn test_move_piece_legal1() {
-    let mut board = Board::new();
-    board.setup_a_rook().unwrap();
-    board.make_move(Move {
-        from: Location { x: 0, y: 0 },
-        to: Location { x: 1, y: 0 },
-    }).unwrap();
-    board.squares[1][0].unwrap();
+fn test_move_rook_legal_1() {
+    let piece = Piece::Rook(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 7, y: 0 };
+    Tester::place_and_move_legal(piece, from, to);
+}
+
+#[test]
+fn test_move_rook_illegal_1() {
+    let piece = Piece::Rook(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 7, y: 2 };
+    Tester::place_and_move_illegal(piece, from, to);
+}
+
+#[test]
+fn test_move_queen_legal_1() {
+    let piece = Piece::Queen(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 0, y: 5 };
+    Tester::place_and_move_legal(piece, from, to);
+}
+
+#[test]
+fn test_move_queen_illegal_1() {
+    let piece = Piece::Queen(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 1, y: 5 };
+    Tester::place_and_move_illegal(piece, from, to);
+}
+
+#[test]
+fn test_move_bishop_legal_1() {
+    let piece = Piece::Bishop(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 5, y: 5 };
+    Tester::place_and_move_legal(piece, from, to);
+}
+
+#[test]
+fn test_move_bishop_illegal_1() {
+    let piece = Piece::Bishop(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 6, y: 5 };
+    Tester::place_and_move_illegal(piece, from, to);
+}
+
+#[test]
+fn test_move_pawn_legal_1() {
+    let piece = Piece::Pawn(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 0, y: 1 };
+    Tester::place_and_move_legal(piece, from, to);
+}
+
+#[test]
+fn test_move_pawn_illegal_1() {
+    let piece = Piece::Pawn(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 0, y: 2 };
+    Tester::place_and_move_illegal(piece, from, to);
+}
+
+#[test]
+fn test_move_king_legal_1() {
+    let piece = Piece::King(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 0, y: 1 };
+    Tester::place_and_move_legal(piece, from, to);
+}
+
+#[test]
+fn test_move_king_illegal_1() {
+    let piece = Piece::King(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 0, y: 2 };
+    Tester::place_and_move_illegal(piece, from, to);
+}
+
+#[test]
+fn test_move_knight_legal_1() {
+    let piece = Piece::Knight(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 2, y: 1 };
+    Tester::place_and_move_legal(piece, from, to);
+}
+
+#[test]
+fn test_move_knight_illegal_1() {
+    let piece = Piece::Knight(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 3, y: 1 };
+    Tester::place_and_move_illegal(piece, from, to);
+}
+
+struct Tester;
+
+impl Tester {
+    fn place_and_move_legal(p: Piece, from: Location, to: Location) {
+        let mut board = Board::new();
+        board.place(p, from).unwrap();
+        board.make_move(Move { from, to, }).unwrap();
+        board.get_piece_from(&to).unwrap();
+    }
+
+    fn place_and_move_illegal(p: Piece, from: Location, to: Location) {
+        let mut board = Board::new();
+        board.place(Piece::King(Color::Black), from).unwrap();
+        board.make_move(Move { from, to, }).unwrap_err();
+    }
 }
 
 
@@ -222,7 +305,7 @@ impl Board {
     }
 
     fn setup_a_rook(&mut self) -> Result<(), ()> {
-        self.place(Piece::Rook(White), Location { x: 0, y: 0 })
+        self.place(Piece::Rook(Color::White), Location { x: 0, y: 0 })
     }
 
     fn make_move(&mut self, m: Move) -> Result<(), FailReason> {
@@ -257,7 +340,7 @@ impl Board {
         if self.is_piece_here(&square) || *square == m.from {
             false
         } else {
-            !Board::square_is_in_middle_of_path(*square, m) && self.is_opposite_color(piece, square).unwrap_or_else(|_| false )
+            !Board::square_is_in_middle_of_path(*square, m) && self.is_opposite_color(piece, square).unwrap_or_else(|_| false)
         }
     }
 
@@ -290,30 +373,29 @@ impl Board {
 }
 
 #[derive(Copy, Clone)]
-struct Knight {}
+struct Knight;
 
 #[derive(Copy, Clone)]
-struct Pawn {}
+struct Pawn;
 
 #[derive(Copy, Clone)]
-struct King {}
+struct King;
 
 #[derive(Copy, Clone)]
-struct Queen {}
+struct Queen;
 
 #[derive(Copy, Clone)]
-struct Bishop {}
+struct Bishop;
 
 #[derive(Copy, Clone)]
-struct Rook {}
+struct Rook;
 
 impl Knight {
     fn squares_moved(m: Move) -> Result<Vec<Location>, FailReason> {
-        let Move { from, to } = m;
-
-        match ((to - from).x.abs(), (to - from).y.abs()) {
+        let diff = m.to - m.from;
+        match (diff.x.abs(), diff.y.abs()) {
             (1, 2) | (2, 1) => Ok(vec!(m.to)),
-            _ => Err(ImpossibleMove)
+            _ => Err(FailReason::ImpossibleMove)
         }
     }
 }
@@ -327,15 +409,14 @@ impl Pawn {
                 if Pawn::is_in_original_position(from) {
                     Ok(vec![from, from + Location { x: 0, y: y / 2 }, to])
                 } else {
-                    Err(ImpossibleMove)
+                    Err(FailReason::ImpossibleMove)
                 }
             }
-
-            _ => {
-                if Pawn::moved_one_diagonal(m) {
+            (x,y) => {
+                if Pawn::moved_one_diagonal(x,y) {
                     Ok(vec![from, to])
                 } else {
-                    Err(ImpossibleMove)
+                    Err(FailReason::ImpossibleMove)
                 }
             }
         }
@@ -345,8 +426,7 @@ impl Pawn {
         from.x == 1 || from.x == 6
     }
 
-    fn moved_one_diagonal(m: Move) -> bool {
-        let Location { x, y } = m.from - m.to;
+    fn moved_one_diagonal(x: i32, y: i32) -> bool {
         x.abs() == 1 && y.abs() == 1
     }
 }
@@ -357,7 +437,7 @@ impl King {
 
         match ((to - from).x.abs(), (to - from).y.abs()) {
             (1, 0) | (0, 1) | (1, 1) => { Ok(vec!(m.to)) }
-            _ => Err(ImpossibleMove)
+            _ => Err(FailReason::ImpossibleMove)
         }
     }
 }
@@ -369,7 +449,7 @@ impl Queen {
         } else if let Ok(bishop_result) = Bishop::squares_moved(m) {
             Ok(bishop_result)
         } else {
-            Err(ImpossibleMove)
+            Err(FailReason::ImpossibleMove)
         }
     }
 }
@@ -380,13 +460,13 @@ impl Bishop {
         return if Bishop::is_diagonal(m) {
             Ok((from.x..=to.x).zip(from.y..=to.y).map(|(x, y)| { Location { x, y } }).collect())
         } else {
-            Err(ImpossibleMove)
+            Err(FailReason::ImpossibleMove)
         };
     }
 
     fn is_diagonal(m: Move) -> bool {
         let Move { from, to } = m;
-        from.x - to.x == to.y - to.y
+        from.x - to.x == from.y - to.y
     }
 }
 
@@ -396,7 +476,7 @@ impl Rook {
         match to - from {
             Location { x, y: 0 } => Ok((0..=x).into_iter().map(|x| { from + Location { x, y: 0 } }).collect()),
             Location { x: 0, y } => Ok((0..=y).into_iter().map(|y| { from + Location { x: 0, y } }).collect()),
-            _ => Err(ImpossibleMove)
+            _ => Err(FailReason::ImpossibleMove)
         }
     }
 }
