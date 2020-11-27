@@ -4,6 +4,7 @@ use std::collections::LinkedList;
 use std::ops::{Sub, Add, Deref, Not};
 use std::borrow::Borrow;
 use std::option::NoneError;
+use std::cmp::max;
 
 #[test]
 fn test_create_game() {
@@ -13,48 +14,94 @@ fn test_create_game() {
 #[test]
 fn test_create_game_setup_a_rook() {
     let mut board = Board::new();
-    board.setup_a_rook().unwrap();
+    board.place(
+        Piece::Rook(Color::White),
+        Location { x: 0, y: 0 },
+    ).unwrap();
 }
 
 #[test]
 fn test_get_a_rook_from_board() {
     let mut board = Board::new();
-    board.setup_a_rook().unwrap();
-    match &board.squares[0][0] {
-        None => { panic!("should be a rook here") }
-        Some(_) => {}
-    }
+    let rook = Piece::Rook(Color::White);
+    let location = Location { x: 0, y: 0 };
+    board.place(rook, location);
+    board.get_piece_from(&location).unwrap();
 }
 
 #[test]
-fn test_squared_moved_legal() {
-    let mut board = Board::new();
-    board.setup_a_rook().unwrap();
-    let squares = match &board.squares[0][0] {
-        None => { panic!("should be a rook here") }
-        Some(rook) => {
-            rook.deref()
-                .squares_moved_over(Move {
-                    from: Location { x: 0, y: 0 },
-                    to: Location { x: 7, y: 0 },
-                })
-        }
-    };
-    assert_eq!(
-        squares.unwrap_or(Vec::new()),
-        (0..=7).into_iter()
-            .map(|x| { Location { x, y: 0 } })
-            .collect::<Vec<Location>>());
+fn test_squares_moved_rook() {
+    let piece = Piece::Rook(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 0, y: 7 };
+    let expected = vec![
+        Location { x: 0, y: 0 },
+        Location { x: 0, y: 1 },
+        Location { x: 0, y: 2 },
+        Location { x: 0, y: 3 },
+        Location { x: 0, y: 4 },
+        Location { x: 0, y: 5 },
+        Location { x: 0, y: 6 },
+        Location { x: 0, y: 7 }
+    ];
+    Tester::squares_moved(piece, from, to, expected)
 }
 
 #[test]
-fn test_move_piece_out_of_bound() {
-    let mut board = Board::new();
-    board.setup_a_rook().unwrap();
-    board.make_move(Move {
-        from: Location { x: 0, y: 0 },
-        to: Location { x: -1, y: -1 },
-    }).unwrap_err();
+fn test_squares_moved_knight() {
+    let piece = Piece::Knight(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 1, y: 2 };
+    let expected = vec![
+        Location { x: 0, y: 0 },
+        Location { x: 1, y: 2 },
+    ];
+    Tester::squares_moved(piece, from, to, expected)
+}
+
+#[test]
+fn test_squares_moved_pawn() {
+    let piece = Piece::Pawn(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 1, y: 1 };
+    let expected = vec![
+        Location { x: 0, y: 0 },
+        Location { x: 1, y: 1 },
+    ];
+    Tester::squares_moved(piece, from, to, expected)
+}
+
+
+#[test]
+fn test_squares_moved_queen() {
+    let piece = Piece::Queen(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 5, y: 5 };
+    let expected = vec![
+        Location { x: 0, y: 0 },
+        Location { x: 1, y: 1 },
+        Location { x: 2, y: 2 },
+        Location { x: 3, y: 3 },
+        Location { x: 4, y: 4 },
+        Location { x: 5, y: 5 },
+    ];
+    Tester::squares_moved(piece, from, to, expected)
+}
+
+#[test]
+fn test_squares_moved_bishop() {
+    let piece = Piece::Bishop(Color::White);
+    let from = Location { x: 5, y: 5 };
+    let to = Location { x: 0, y: 0 };
+    let expected = vec![
+        Location { x: 5, y: 5 },
+        Location { x: 4, y: 4 },
+        Location { x: 3, y: 3 },
+        Location { x: 2, y: 2 },
+        Location { x: 1, y: 1 },
+        Location { x: 0, y: 0 },
+    ];
+    Tester::squares_moved(piece, from, to, expected)
 }
 
 #[test]
@@ -156,17 +203,29 @@ fn test_move_knight_illegal_1() {
 struct Tester;
 
 impl Tester {
-    fn place_and_move_legal(p: Piece, from: Location, to: Location) {
+    fn place_and_move_legal(piece: Piece, from: Location, to: Location) {
         let mut board = Board::new();
-        board.place(p, from).unwrap();
+        board.place(piece, from).unwrap();
         board.make_move(Move { from, to }).unwrap();
         board.get_piece_from(&to).unwrap();
     }
 
-    fn place_and_move_illegal(p: Piece, from: Location, to: Location) {
+    fn place_and_move_illegal(piece: Piece, from: Location, to: Location) {
         let mut board = Board::new();
-        board.place(Piece::King(Color::Black), from).unwrap();
+        board.place(piece, from).unwrap();
         board.make_move(Move { from, to }).unwrap_err();
+    }
+
+    fn squares_moved(piece: Piece, from: Location, to: Location, expected: Vec<Location>) {
+        let mut board = Board::new();
+        board.place(piece, from).unwrap();
+        assert_eq!(
+            expected,
+            board.get_piece_from(&from)
+                .unwrap()
+                .squares_moved_over(Move { from, to })
+                .unwrap()
+        )
     }
 }
 
@@ -295,11 +354,11 @@ impl Board {
         }
     }
 
-    fn place(&mut self, p: Piece, l: Location) -> Result<(), ()> {
-        if self.squares[l.x as usize][l.y as usize].is_some() {
+    fn place(&mut self, piece: Piece, location: Location) -> Result<(), ()> {
+        if self.squares[location.x as usize][location.y as usize].is_some() {
             Err(())
         } else {
-            self.squares[l.x as usize][l.y as usize] = Some(p);
+            self.squares[location.x as usize][location.y as usize] = Some(piece);
             Ok(())
         }
     }
@@ -394,7 +453,7 @@ impl Knight {
     fn squares_moved(m: Move, _c: &Color) -> Result<Vec<Location>, FailReason> {
         let diff = m.to - m.from;
         match (diff.x.abs(), diff.y.abs()) {
-            (1, 2) | (2, 1) => Ok(vec!(m.to)),
+            (1, 2) | (2, 1) => Ok(vec!(m.from, m.to)),
             _ => Err(FailReason::ImpossibleMove)
         }
     }
@@ -474,7 +533,24 @@ impl Bishop {
     fn squares_moved(m: Move, _c: &Color) -> Result<Vec<Location>, FailReason> {
         let Move { from, to } = m;
         return if Bishop::is_diagonal(m) {
-            Ok((from.x..=to.x).zip(from.y..=to.y).map(|(x, y)| { Location { x, y } }).collect())
+            Ok(
+                match from - to {
+                    loc if loc.x > 0 && loc.y > 0 => {
+                        ((to.x..=from.x).rev()).zip((to.x..=from.x).rev())
+                    }
+                    loc if loc.x > 0 && loc.y < 0 => {
+                        (to.x..=from.x).rev().zip(from.y..=to.y)
+                    }
+                    loc if loc.x < 0 && loc.y > 0 => {
+                        (from.x..=to.x).zip((to.y..=from.y).rev())
+                    }
+                    loc if loc.x < 0 && loc.y < 0 => {
+                        (from.x..=to.x).zip((from.y..=to.y))
+                    }
+                    _ => unreachable!("from-to should not be 0 at x or y")
+                }
+                    .map(|(x, y)| { Location { x: *x, y: *y } }).collect()
+            )
         } else {
             Err(FailReason::ImpossibleMove)
         };
