@@ -186,12 +186,12 @@ fn test_move_pawn_legal_2() {
 }
 
 #[test]
-fn test_move_pawn_legal_3() {
+fn test_attack_pawn_legal_3() {
     let piece = Piece::Pawn(Color::Black);
     let target = Piece::Pawn(Color::White);
     let from = Location { x: 1, y: 1 };
     let to = Location { x: 0, y: 0 };
-    Tester::place_target_and_piece_then_move_legal(piece, target, from, to, None);
+    Tester::place_target_and_piece_then_move_legal(piece, target, from, to, Some(Piece::Queen(Color::Black)));
 }
 
 #[test]
@@ -209,7 +209,62 @@ fn test_promote_pawn_legal() {
     let promotion = Some(Piece::Queen(Color::White));
     let from = Location { x: 5, y: 6 };
     let to = Location { x: 5, y: 7 };
-    Tester::place_and_move_legal(piece, from, to, promotion)
+    Tester::place_and_move_legal(piece, from, to, promotion);
+}
+
+#[test]
+fn test_move_pawn_illegal_4() {
+    let piece = Piece::Pawn(Color::White);
+    let from = Location { x: 0, y: 0 };
+    let to = Location { x: 1, y: 1 };
+    Tester::place_and_move_illegal(piece, from, to, None);
+}
+
+#[test]
+fn test_en_pessant_legal() {
+    let mut board = Board::new();
+    let piece = Piece::Pawn(Color::Black);
+    let target = Piece::Pawn(Color::White);
+    let starting_attacker = Location { x: 2, y: 3 };
+    let starting_target = Location { x: 1, y: 1 };
+    let ending_target = Location { x: 1, y: 3 };
+    let ending_attacker = Location { x: 1, y: 2 };
+
+    board.place(piece, starting_attacker);
+    board.place(target, starting_target);
+
+    board.make_move(Move {
+        from: starting_target,
+        to: ending_target,
+        piece: None,
+    }).unwrap();
+
+    board.make_move(Move {
+        from: starting_attacker,
+        to: ending_attacker,
+        piece: None,
+    }).unwrap();
+
+    board.get_piece_from(&ending_target).is_none();
+}
+
+#[test]
+fn test_en_pessant_illegal() {
+    let mut board = Board::new();
+    let piece = Piece::Pawn(Color::Black);
+    let target = Piece::Pawn(Color::White);
+    let starting_attacker = Location { x: 0, y: 3 };
+    let starting_target = Location { x: 1, y: 3 };
+    let ending_attacker = Location { x: 1, y: 2 };
+
+    board.place(piece, starting_attacker);
+    board.place(target, starting_target);
+
+    board.make_move(Move {
+        from: starting_attacker,
+        to: ending_attacker,
+        piece: None,
+    }).unwrap_err();
 }
 
 #[test]
@@ -290,7 +345,7 @@ impl Tester {
         let mut board = Board::new();
         board.place(piece, from).unwrap();
         board.place(target, to).unwrap();
-        board.make_move(Move::new(from, to)).unwrap();
+        board.make_move(Move::new_with_opt_piece(from, to, promotion)).unwrap();
         board.get_piece_from(&to).unwrap();
     }
 
@@ -321,6 +376,14 @@ impl Move {
             from,
             to,
             piece: None,
+        }
+    }
+
+    fn new_with_opt_piece(from: Location, to: Location, piece: Option<Piece>) -> Self {
+        Move {
+            from,
+            to,
+            piece,
         }
     }
 
@@ -430,7 +493,7 @@ enum FailReason {
     NoPieceHere(String),
     Blocked(String),
     OutOfBounds(String),
-    NeedPromotion(String)
+    NeedPromotion(String),
 }
 
 impl From<NoneError> for FailReason {
@@ -471,7 +534,7 @@ impl Board {
         Board::do_bounds_check(m)?;
         //TODO add special behavior for special moves like castling, en pessant, promoting
         let piece = self.get_piece_from(&m.from)?;
-        self.do_piece_specific_checks(&m, piece);
+        self.do_piece_specific_checks(&m, piece)?;
         let blocked = piece.squares_moved_over(m)?.iter()
             .any(|square| { self.is_blocked(m, piece, square) });
 
@@ -496,18 +559,24 @@ impl Board {
 
     fn is_valid_pawn_move(&self, m: &Move, c: &Color) -> Result<(), FailReason> {
         if Board::is_promotion(*m) && m.piece.is_none() {
+            println!("1");
             return Err(FailReason::NeedPromotion(String::from("the pawn moved to the last row, but we dont know what you want to promote it to")));
-        }
-
-        if Pawn::is_attacking_validly(*m, &c) {
-            let target = self.get_piece_from(&m.to)?;
+        } else if Pawn::is_attacking_validly(*m, &c) {
+            println!("2");
+            // do enpassent check here
+            let target = match self.get_piece_from(&m.to) {
+                None => return Err(FailReason::NoPieceHere(String::from("no peice for the pawn to attack"))),
+                Some(target) => target
+            };
+            println!("hello! {:?}", target);
             match self.is_opposite_color(target, &m.from) {
                 Ok(is_opp) if is_opp => Ok(()),
-                Ok(is_opp) if !is_opp => Err(FailReason::ImpossibleMove(String::from("not a valid move for a pawn, you've tried moving diagonally into your own peice"))),
+                Ok(is_opp) if !is_opp => Err(FailReason::ImpossibleMove(String::from("not a valid move for a pawn, you've tried moving diagonally into your own piece"))),
                 Err(err) => Err(err),
                 _ => unreachable!("covered both true and false cases for Ok and all Err")
             }
         } else {
+            println!("3");
             Ok(())
         }
     }
@@ -522,41 +591,44 @@ impl Board {
 
     fn is_blocked(&self, m: Move, piece: Piece, square: &Location) -> bool {
         if Board::square_is_in_middle_of_path(*square, m) {
-            //println!("square is in middle of path");
+            println!("square is in middle of path");
             if self.get_piece_from(square).is_some() {
-                //println!("square contains piece, BLOCKED");
+                println!("square contains piece, BLOCKED");
                 true
             } else {
-                //println!("square does not contain piece");
+                println!("square does not contain piece");
                 false
             }
         } else if self.get_piece_from(square).is_some() {
-            //println!("square is not in middle of path and contains something");
+            println!("square is not in middle of path and contains something");
             if m.from == *square {
-                //println!("lol its just me");
+                println!("lol its just me");
                 false
             } else if m.to == *square {
-                //println!("we're attacking this bad boy now");
+                println!("we're attacking this bad boy now");
                 if self.is_opposite_color(piece, square).unwrap() {
-                    //println!("we can attack as we are different colours");
+                    println!("we can attack as we are different colours");
                     false
                 } else {
-                    //println!("we can not attack as we are the same color, BLOCKED");
+                    println!("we can not attack as we are the same color, BLOCKED");
                     true
                 }
             } else {
                 panic!("should not be possible")
             }
         } else {
-            //println!("square is not in middle of path and nothing is here");
+            println!("square is not in middle of path and nothing is here");
             false
         }
     }
 
     fn is_opposite_color(&self, piece: Piece, taken_square: &Location) -> Result<bool, FailReason> {
-        Ok(self.get_piece_from(taken_square)?
-            .color()
-            .ne(piece.color()))
+        if let Some(other) = self.get_piece_from(taken_square) {
+            println!("{:?}", other);
+            Ok(other.color().ne(piece.color()))
+        } else {
+            Err(FailReason::NoPieceHere(String::from("no piece where we are trying to attack")))
+        }
     }
 
     fn square_is_in_middle_of_path(taken_square: Location, m: Move) -> bool {
@@ -572,6 +644,7 @@ impl Board {
     }
 
     fn do_move(&mut self, m: Move) {
+        // this should always be done after an isvalid call, this function trusts the move is valid and executes the move no matter how dumb is it
         let Move { from, to, piece: promotion } = m;
         {
             let piece = self.get_piece_from(&from).expect("this should really be a valid move");
@@ -644,10 +717,13 @@ impl Pawn {
 
     fn is_attacking_validly(m: Move, c: &Color) -> bool {
         let Location { x: diff_x, y: diff_y } = m.from - m.to;
-        diff_x.abs() == 1 && diff_y.abs() == 1;
-        match c {
-            Color::White => diff_y == -1,
-            Color::Black => diff_y == 1,
+        if diff_x.abs() == 1 && diff_y.abs() == 1 {
+            match c {
+                Color::White => diff_y == -1,
+                Color::Black => diff_y == 1,
+            }
+        } else {
+            false
         }
     }
 
@@ -716,7 +792,7 @@ impl Bishop {
                 }
                 loc if loc.x < 0 && loc.y < 0 => {
                     (from.x..=to.x)
-                        .zip((from.y..=to.y))
+                        .zip(from.y..=to.y)
                         .collect()
                 }
                 _ => unreachable!("from-to should not be 0 at x or y")
@@ -729,7 +805,7 @@ impl Bishop {
 
     fn is_diagonal(m: Move) -> bool {
         let Move { from, to, .. } = m;
-        from.x - to.x == from.y - to.y
+        (from.x - to.x).abs() == (from.y - to.y).abs()
     }
 }
 
