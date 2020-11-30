@@ -3,9 +3,7 @@
 
 use std::collections::LinkedList;
 use std::ops::{Sub, Add};
-use std::borrow::Borrow;
 use std::option::NoneError;
-use std::cmp::max;
 
 #[test]
 fn test_create_game() {
@@ -26,7 +24,7 @@ fn test_get_a_rook_from_board() {
     let mut board = Board::new();
     let rook = Piece::Rook(Color::White);
     let location = Location { x: 0, y: 0 };
-    board.place(rook, location);
+    board.place(rook, location).unwrap();
     board.get_piece_from(&location).unwrap();
 }
 
@@ -231,8 +229,8 @@ fn test_en_pessant_legal() {
     let ending_target = Location { x: 1, y: 3 };
     let ending_attacker = Location { x: 1, y: 2 };
 
-    board.place(piece, starting_attacker);
-    board.place(target, starting_target);
+    board.place(piece, starting_attacker).unwrap();
+    board.place(target, starting_target).unwrap();
 
     board.make_move(Move::new(starting_target, ending_target)).unwrap();
     board.make_move(Move::new(starting_attacker, ending_attacker)).unwrap();
@@ -442,7 +440,7 @@ impl Tester {
 
 struct Board {
     squares: [[Option<Piece>; 8]; 8],
-    past_moves: LinkedList<Move>,
+    past_moves: LinkedList<(Move, Piece)>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -619,13 +617,10 @@ impl Board {
         }
     }
 
-    fn setup_a_rook(&mut self) -> Result<(), ()> {
-        self.place(Piece::Rook(Color::White), Location { x: 0, y: 0 })
-    }
-
     fn make_move(&mut self, m: Move) -> Result<(), FailReason> {
         self.is_valid_move(m)?;
-        self.past_moves.push_front(m);
+        let moving_peice = self.get_piece_from(&m.from).expect("should be a piece here after is_valid_move call");
+        self.past_moves.push_front((m, moving_peice));
         let color = self.get_piece_from(&m.from).unwrap().color().clone();
         self.do_move(m);
         if self.is_in_check(&color) {
@@ -687,7 +682,7 @@ impl Board {
     fn check_en_passant(&self, m: &&Move) -> Result<(), FailReason> {
         match self.past_moves.back() {
             None => { Err(FailReason::ImpossibleMove(String::from("can only en passant a pawn that just moved"))) }
-            Some(last_move) => {
+            Some((last_move, _)) => {
                 if (last_move.to - last_move.from).as_abs_tup() == (0, 2) && self.is_opposite_color(self.get_piece_from(&last_move.to)?, &m.from)? {
                     match self.get_piece_from(&last_move.to) {
                         None => { panic!("there should be a piece here") }
@@ -764,10 +759,6 @@ impl Board {
         self.squares[square.x as usize][square.y as usize]
     }
 
-    fn is_piece_here(&self, square: &&Location) -> bool {
-        self.get_piece_from(square).is_some()
-    }
-
     fn do_move(&mut self, m: Move) {
         // this should always be done after an isvalid call, this function trusts the move is valid and executes the move no matter how dumb is it
         if King::is_castling(&m) {
@@ -792,21 +783,25 @@ impl Board {
 
     fn is_valid_king_move(&self, m: &Move) -> Result<(), FailReason> {
         if King::is_castling(m) {
-            if self.past_moves.iter().any(|past_move| { past_move.to == m.from || past_move.from == m.from }) {
+            if self.past_moves.iter().any(|(past_move, _)| { past_move.to == m.from || past_move.from == m.from }) {
                 return Err(FailReason::ImpossibleMove(String::from("cannot castle, king has already moved")));
             } else {
                 let rook_location = King::get_rooks_location_for_castle(m).expect("already checked king was castling");
-                if self.past_moves.iter().any(|past_move| { past_move.from == rook_location || past_move.to == rook_location }) {
+                if self.past_moves.iter().any(|(past_move, _)| { past_move.from == rook_location || past_move.to == rook_location }) {
                     return Err(FailReason::ImpossibleMove(String::from("cannot castle, rook has already moved")));
                 }
             }
         }
         Ok(())
     }
+
     fn undo_last_move(&mut self) {
-        let last_move = self.past_moves.pop_front().expect("if we're undoing moves, there should have been one prior");
-        self.do_move(Move::new(last_move.to, last_move.from))
+        let (last_move, _) = self.past_moves.pop_front().expect("if we're undoing moves, there should have been one prior");
+        self.do_move(Move::new(last_move.to, last_move.from));
+        let (_, taken_piece) = self.past_moves.iter().find(|(m, p)| {m.to == last_move.to});
+        self.place(taken_piece, last_move.to);
     }
+
     fn is_in_check(&self, _c: &Color) -> bool {
         false
     }
