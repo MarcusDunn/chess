@@ -327,23 +327,11 @@ fn test_castle_king_side_illegal_1() {
     board.place(rook, Location { x: 7, y: 0 });
     board.place(king, Location { x: 4, y: 0 });
 
-    board.make_move(Move {
-        from: Location { x: 4, y: 0 },
-        to: Location { x: 5, y: 0 },
-        piece: None,
-    }).unwrap();
+    board.make_move(Move::new(Location { x: 4, y: 0 }, Location { x: 5, y: 0 })).unwrap();
 
-    board.make_move(Move {
-        from: Location { x: 5, y: 0 },
-        to: Location { x: 4, y: 0 },
-        piece: None,
-    }).unwrap();
+    board.make_move(Move::new(Location { x: 5, y: 0 }, Location { x: 4, y: 0 })).unwrap();
 
-    board.make_move(Move {
-        from: Location { x: 4, y: 0 },
-        to: Location { x: 6, y: 0 },
-        piece: None,
-    }).unwrap_err();
+    board.make_move(Move::new(Location { x: 4, y: 0 }, Location { x: 6, y: 0 })).unwrap_err();
 }
 
 #[test]
@@ -354,23 +342,11 @@ fn test_castle_queen_side_illegal_1() {
     board.place(rook, Location { x: 0, y: 7 });
     board.place(king, Location { x: 4, y: 7 });
 
-    board.make_move(Move {
-        from: Location { x: 4, y: 7 },
-        to: Location { x: 4, y: 6 },
-        piece: None,
-    }).unwrap();
+    board.make_move(Move::new(Location { x: 4, y: 7 }, Location { x: 4, y: 6 })).unwrap();
 
-    board.make_move(Move {
-        from: Location { x: 4, y: 6 },
-        to: Location { x: 4, y: 7 },
-        piece: None,
-    }).unwrap();
+    board.make_move(Move::new(Location { x: 4, y: 6 }, Location { x: 4, y: 7 })).unwrap();
 
-    board.make_move(Move {
-        from: Location { x: 4, y: 6 },
-        to: Location { x: 2, y: 6 },
-        piece: None,
-    }).unwrap_err();
+    board.make_move(Move::new(Location { x: 4, y: 6 }, Location { x: 2, y: 6 })).unwrap_err();
 }
 
 #[test]
@@ -423,16 +399,15 @@ impl Tester {
         board.place(piece, from).unwrap();
         let mut expected_sorted = expected.clone();
         expected_sorted.sort();
+
         let mut result_sorted = board.get_piece_from(&from)
             .unwrap()
             .squares_moved_over(Move::new(from, to))
             .unwrap();
+
         result_sorted.sort();
 
-        assert_eq!(
-            expected_sorted,
-            result_sorted
-        )
+        assert_eq!(expected_sorted, result_sorted)
     }
 
     fn place_target_and_piece_then_move_legal(piece: Piece, target: Piece, from: Location, to: Location, promotion: Option<Piece>) {
@@ -591,7 +566,8 @@ impl Add for Location {
 }
 
 #[derive(Debug, PartialOrd, PartialEq)]
-enum FailReason { // refactor to &str
+enum FailReason {
+    // refactor to &str
     ImpossibleMove(String),
     NoPieceHere(String),
     Blocked(String),
@@ -760,7 +736,7 @@ impl Board {
     }
 
     fn get_piece_from(&self, square: &Location) -> Option<Piece> {
-        if self.squares[square.x as usize][square.y as usize].is_none() {println!("didnt find something at {:?}", square)};
+        if self.squares[square.x as usize][square.y as usize].is_none() { println!("didnt find something at {:?}", square) };
         self.squares[square.x as usize][square.y as usize]
     }
 
@@ -786,12 +762,12 @@ impl Board {
     }
     fn is_valid_king_move(&self, m: &Move, p1: &Color) -> Result<(), FailReason> {
         if King::is_castling(m) {
-            if self.past_moves.iter().any(|past_move| {past_move.to == m.from || past_move.from == m.from}) {
-                return Err(FailReason::ImpossibleMove(String::from("cannot castle, king has already moved")))
+            if self.past_moves.iter().any(|past_move| { past_move.to == m.from || past_move.from == m.from }) {
+                return Err(FailReason::ImpossibleMove(String::from("cannot castle, king has already moved")));
             } else {
                 let rook_location = King::get_rooks_location_for_castle(m).expect("already checked king was castling");
-                if self.past_moves.iter().any(|past_move| {past_move.from == rook_location || past_move.to == rook_location}) {
-                    return Err(FailReason::ImpossibleMove(String::from("cannot castle, rook has already moved")))
+                if self.past_moves.iter().any(|past_move| { past_move.from == rook_location || past_move.to == rook_location }) {
+                    return Err(FailReason::ImpossibleMove(String::from("cannot castle, rook has already moved")));
                 }
             }
         }
@@ -908,8 +884,8 @@ impl King {
         let from = King::get_rooks_location_for_castle(kings_move)?;
 
         let to = match kings_move.to.as_tup() {
-            (2, y) => Location {x: 3, y },
-            (6, y) =>  Location {x: 5, y },
+            (2, y) => Location { x: 3, y },
+            (6, y) => Location { x: 5, y },
             _ => unreachable!("as we're castling, it should be one of these")
         };
         Ok(Move::new(from, to))
@@ -918,8 +894,8 @@ impl King {
     fn get_rooks_location_for_castle(kings_move: &Move) -> Result<Location, FailReason> {
         assert!(King::is_castling(kings_move), "called get_rooks_location_for_castle when not castling");
         match kings_move.to.as_tup() {
-            (2, y) => Ok(Location{x: 0, y}),
-            (6, y) => Ok(Location{x: 7, y}),
+            (2, y) => Ok(Location { x: 0, y }),
+            (6, y) => Ok(Location { x: 7, y }),
             _ => unreachable!(format!("as we're castling, it should be one of these, instead the kings destination is {:?}", kings_move.to))
         }
     }
