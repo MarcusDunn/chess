@@ -1,4 +1,5 @@
 #![feature(try_trait)]
+#![feature(option_unwrap_none)]
 
 use std::collections::LinkedList;
 use std::ops::{Sub, Add};
@@ -117,7 +118,7 @@ fn test_move_rook_illegal_1() {
     let piece = Piece::Rook(Color::White);
     let from = Location { x: 0, y: 0 };
     let to = Location { x: 7, y: 2 };
-    Tester::place_and_move_illegal(piece, from, to, None);
+    Tester::place_and_move_illegal(piece, from, to);
 }
 
 #[test]
@@ -133,7 +134,7 @@ fn test_move_queen_illegal_1() {
     let piece = Piece::Queen(Color::White);
     let from = Location { x: 0, y: 0 };
     let to = Location { x: 1, y: 5 };
-    Tester::place_and_move_illegal(piece, from, to, None);
+    Tester::place_and_move_illegal(piece, from, to);
 }
 
 #[test]
@@ -149,7 +150,7 @@ fn test_move_bishop_illegal_1() {
     let piece = Piece::Bishop(Color::White);
     let from = Location { x: 0, y: 0 };
     let to = Location { x: 6, y: 5 };
-    Tester::place_and_move_illegal(piece, from, to, None);
+    Tester::place_and_move_illegal(piece, from, to);
 }
 
 #[test]
@@ -165,7 +166,7 @@ fn test_move_pawn_illegal_1() {
     let piece = Piece::Pawn(Color::White);
     let from = Location { x: 0, y: 0 };
     let to = Location { x: 0, y: 2 };
-    Tester::place_and_move_illegal(piece, from, to, None);
+    Tester::place_and_move_illegal(piece, from, to);
 }
 
 #[test]
@@ -173,7 +174,7 @@ fn test_move_pawn_illegal_2() {
     let piece = Piece::Pawn(Color::Black);
     let from = Location { x: 0, y: 0 };
     let to = Location { x: 1, y: 1 };
-    Tester::place_and_move_illegal(piece, from, to, None);
+    Tester::place_and_move_illegal(piece, from, to);
 }
 
 #[test]
@@ -217,7 +218,7 @@ fn test_move_pawn_illegal_4() {
     let piece = Piece::Pawn(Color::White);
     let from = Location { x: 0, y: 0 };
     let to = Location { x: 1, y: 1 };
-    Tester::place_and_move_illegal(piece, from, to, None);
+    Tester::place_and_move_illegal(piece, from, to);
 }
 
 #[test]
@@ -236,7 +237,7 @@ fn test_en_pessant_legal() {
     board.make_move(Move::new(starting_target, ending_target)).unwrap();
     board.make_move(Move::new(starting_attacker, ending_attacker)).unwrap();
 
-    board.get_piece_from(&ending_target).is_none();
+    board.get_piece_from(&ending_target).unwrap_none();
 }
 
 #[test]
@@ -248,8 +249,8 @@ fn test_en_pessant_illegal() {
     let starting_target = Location { x: 1, y: 3 };
     let ending_attacker = Location { x: 1, y: 2 };
 
-    board.place(piece, starting_attacker);
-    board.place(target, starting_target);
+    board.place(piece, starting_attacker).unwrap();
+    board.place(target, starting_target).unwrap();
 
     board.make_move(Move::new(starting_attacker, ending_attacker)).unwrap_err();
 }
@@ -260,7 +261,7 @@ fn test_move_pawn_illegal_3() {
     let target = Piece::Pawn(Color::Black);
     let from = Location { x: 1, y: 1 };
     let to = Location { x: 0, y: 0 };
-    Tester::place_target_and_piece_then_move_illegal(piece, target, from, to, None);
+    Tester::place_target_and_piece_then_move_illegal(piece, target, from, to);
 }
 
 #[test]
@@ -276,7 +277,7 @@ fn test_move_king_illegal_1() {
     let piece = Piece::King(Color::White);
     let from = Location { x: 0, y: 0 };
     let to = Location { x: 0, y: 2 };
-    Tester::place_and_move_illegal(piece, from, to, None);
+    Tester::place_and_move_illegal(piece, from, to);
 }
 
 #[test]
@@ -292,7 +293,7 @@ fn test_move_knight_illegal_1() {
     let piece = Piece::Knight(Color::White);
     let from = Location { x: 0, y: 0 };
     let to = Location { x: 3, y: 1 };
-    Tester::place_and_move_illegal(piece, from, to, None);
+    Tester::place_and_move_illegal(piece, from, to);
 }
 
 #[test]
@@ -300,13 +301,9 @@ fn test_castle_king_side_legal_1() {
     let mut board = Board::new();
     let king = Piece::King(Color::White);
     let rook = Piece::Rook(Color::White);
-    board.place(rook, Location { x: 7, y: 0 });
-    board.place(king, Location { x: 4, y: 0 });
-    board.make_move(Move {
-        from: Location { x: 4, y: 0 },
-        to: Location { x: 6, y: 0 },
-        piece: None,
-    }).unwrap();
+    board.place(rook, Location { x: 7, y: 0 }).unwrap();
+    board.place(king, Location { x: 4, y: 0 }).unwrap();
+    board.make_move(Move::new(Location { x: 4, y: 0 }, Location { x: 6, y: 0 })).unwrap();
 
     match board.get_piece_from(&Location { x: 6, y: 0 }).unwrap() {
         Piece::King(_) => {}
@@ -324,8 +321,8 @@ fn test_castle_king_side_illegal_1() {
     let mut board = Board::new();
     let king = Piece::King(Color::White);
     let rook = Piece::Rook(Color::White);
-    board.place(rook, Location { x: 7, y: 0 });
-    board.place(king, Location { x: 4, y: 0 });
+    board.place(rook, Location { x: 7, y: 0 }).unwrap();
+    board.place(king, Location { x: 4, y: 0 }).unwrap();
 
     board.make_move(Move::new(Location { x: 4, y: 0 }, Location { x: 5, y: 0 })).unwrap();
 
@@ -339,8 +336,8 @@ fn test_castle_queen_side_illegal_1() {
     let mut board = Board::new();
     let king = Piece::King(Color::Black);
     let rook = Piece::Rook(Color::Black);
-    board.place(rook, Location { x: 0, y: 7 });
-    board.place(king, Location { x: 4, y: 7 });
+    board.place(rook, Location { x: 0, y: 7 }).unwrap();
+    board.place(king, Location { x: 4, y: 7 }).unwrap();
 
     board.make_move(Move::new(Location { x: 4, y: 7 }, Location { x: 4, y: 6 })).unwrap();
 
@@ -354,13 +351,9 @@ fn test_castle_queen_side_legal_1() {
     let mut board = Board::new();
     let king = Piece::King(Color::Black);
     let rook = Piece::Rook(Color::Black);
-    board.place(rook, Location { x: 0, y: 7 });
-    board.place(king, Location { x: 4, y: 7 });
-    board.make_move(Move {
-        from: Location { x: 4, y: 7 },
-        to: Location { x: 2, y: 7 },
-        piece: None,
-    }).expect("should be a valid castle");
+    board.place(rook, Location { x: 0, y: 7 }).unwrap();
+    board.place(king, Location { x: 4, y: 7 }).unwrap();
+    board.make_move(Move::new(Location { x: 4, y: 7 }, Location { x: 2, y: 7 })).expect("should be a valid castle");
 
     match board.get_piece_from(&Location { x: 2, y: 7 }).expect("king should be here") {
         Piece::King(_) => {}
@@ -371,6 +364,26 @@ fn test_castle_queen_side_legal_1() {
         Piece::Rook(_) => {}
         _ => panic!("rook should be here post-castle")
     };
+}
+
+#[test]
+fn test_stay_in_check() {
+    let mut board = Board::new();
+    let king = Piece::King(Color::Black);
+    let rook = Piece::Rook(Color::White);
+    board.place(king, Location::new(0, 0)).unwrap();
+    board.place(rook, Location::new(1, 1)).unwrap();
+    board.make_move(Move::new(Location::new(0, 0), Location::new(0, 1))).unwrap_err();
+}
+
+#[test]
+fn test_move_into_check() {
+    let mut board = Board::new();
+    let king = Piece::King(Color::Black);
+    let rook = Piece::Rook(Color::White);
+    board.place(king, Location::new(0, 0)).unwrap();
+    board.place(rook, Location::new(1, 1)).unwrap();
+    board.make_move(Move::new(Location::new(0, 0), Location::new(0, 1))).unwrap_err();
 }
 
 struct Tester;
@@ -388,7 +401,7 @@ impl Tester {
         }
     }
 
-    fn place_and_move_illegal(piece: Piece, from: Location, to: Location, promotion: Option<Piece>) {
+    fn place_and_move_illegal(piece: Piece, from: Location, to: Location) {
         let mut board = Board::new();
         board.place(piece, from).unwrap();
         board.make_move(Move::new(from, to)).unwrap_err();
@@ -418,7 +431,7 @@ impl Tester {
         board.get_piece_from(&to).unwrap();
     }
 
-    fn place_target_and_piece_then_move_illegal(piece: Piece, target: Piece, from: Location, to: Location, promotion: Option<Piece>) {
+    fn place_target_and_piece_then_move_illegal(piece: Piece, target: Piece, from: Location, to: Location) {
         let mut board = Board::new();
         board.place(piece, from).unwrap();
         board.place(target, to).unwrap();
@@ -436,15 +449,18 @@ struct Board {
 struct Move {
     from: Location,
     to: Location,
-    piece: Option<Piece>,
+    promoted: Option<Piece>,
 }
+
+
+
 
 impl Move {
     fn new(from: Location, to: Location) -> Self {
         Move {
             from,
             to,
-            piece: None,
+            promoted: None,
         }
     }
 
@@ -452,7 +468,7 @@ impl Move {
         Move {
             from,
             to,
-            piece,
+            promoted: piece,
         }
     }
 
@@ -460,7 +476,7 @@ impl Move {
         Move {
             from,
             to,
-            piece: Some(piece),
+            promoted: Some(piece),
         }
     }
 }
@@ -472,6 +488,13 @@ struct Location {
 }
 
 impl Location {
+    fn new(x: i32, y: i32) -> Location {
+        Location {
+            x,
+            y,
+        }
+    }
+
     fn as_tup(&self) -> (i32, i32) {
         let Location { x, y } = self;
         (*x, *y)
@@ -486,17 +509,13 @@ impl Location {
     }
 
     fn locations_between(&self, dest: Location) -> Result<Vec<Location>, FailReason> {
-        let m = Move {
-            to: dest,
-            from: self.clone(),
-            piece: None,
-        };
+        let m = Move::new(self.clone(), dest);
         if let Ok(rook_result) = Rook::squares_moved(m, &Color::White) {
             Ok(rook_result)
         } else if let Ok(bishop_result) = Bishop::squares_moved(m, &Color::White) {
             Ok(bishop_result)
         } else {
-            Err(FailReason::ImpossibleMove(String::from("invalid call to locations_between, we can only do queen-like moves")))
+            Err(FailReason::ImpossibleMove(String::from("invalid call to locations_between, locations_between can only do queen-like moves")))
         }
     }
 }
@@ -508,6 +527,17 @@ impl Sub for Location {
         Location {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
+        }
+    }
+}
+
+impl Add for Location {
+    type Output = Location;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Location {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
         }
     }
 }
@@ -554,17 +584,6 @@ impl Movable for Piece {
     }
 }
 
-impl Add for Location {
-    type Output = Location;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Location {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-        }
-    }
-}
-
 #[derive(Debug, PartialOrd, PartialEq)]
 enum FailReason {
     // refactor to &str
@@ -573,8 +592,9 @@ enum FailReason {
     Blocked(String),
     OutOfBounds(String),
     NeedPromotion(String),
-    BadFunctionCall(String),
+    Checked(String),
 }
+
 
 impl From<NoneError> for FailReason {
     fn from(_: NoneError) -> Self {
@@ -606,7 +626,12 @@ impl Board {
     fn make_move(&mut self, m: Move) -> Result<(), FailReason> {
         self.is_valid_move(m)?;
         self.past_moves.push_front(m);
+        let color = self.get_piece_from(&m.from).unwrap().color().clone();
         self.do_move(m);
+        if self.is_in_check(&color) {
+            self.undo_last_move();
+            return Err(FailReason::Checked(String::from("your in check mate")));
+        }
         Ok(())
     }
 
@@ -614,8 +639,7 @@ impl Board {
         Board::do_bounds_check(m)?;
         let piece = self.get_piece_from(&m.from)?;
         self.do_piece_specific_checks(&m, piece)?;
-        let blocked = piece.squares_moved_over(m)?.iter()
-            .any(|square| { self.is_blocked(m, piece, square) });
+        let blocked = piece.squares_moved_over(m)?.iter().any(|square| { self.is_blocked(m, piece, square) });
 
 
         if blocked {
@@ -628,7 +652,7 @@ impl Board {
     fn do_piece_specific_checks(&self, m: &Move, piece: Piece) -> Result<(), FailReason> {
         match piece {
             Piece::Pawn(c) => self.is_valid_pawn_move(&m, &c),
-            Piece::King(c) => self.is_valid_king_move(&m, &c),
+            Piece::King(_) => self.is_valid_king_move(&m),
             _ => Ok(())
         }
     }
@@ -638,7 +662,7 @@ impl Board {
     }
 
     fn is_valid_pawn_move(&self, m: &Move, c: &Color) -> Result<(), FailReason> {
-        if Board::is_promotion(*m) && m.piece.is_none() {
+        if Board::is_promotion(*m) && m.promoted.is_none() {
             println!("1");
             return Err(FailReason::NeedPromotion(String::from("the pawn moved to the last row, but we dont know what you want to promote it to")));
         } else if Pawn::is_attacking_validly(*m, &c) {
@@ -691,33 +715,33 @@ impl Board {
 
     fn is_blocked(&self, m: Move, piece: Piece, square: &Location) -> bool {
         if Board::square_is_in_middle_of_path(*square, m) {
-            println!("square is in middle of path");
+            // println!("square is in middle of path");
             if self.get_piece_from(square).is_some() {
-                println!("square contains piece, BLOCKED");
+                // println!("square contains piece, BLOCKED");
                 true
             } else {
-                println!("square does not contain piece");
+                // println!("square does not contain piece");
                 false
             }
         } else if self.get_piece_from(square).is_some() {
-            println!("square is not in middle of path and contains something");
+            // println!("square is not in middle of path and contains something");
             if m.from == *square {
-                println!("lol its just me");
+                // println!("lol its just me");
                 false
             } else if m.to == *square {
-                println!("we're attacking this bad boy now");
+                // println!("we're attacking this bad boy now");
                 if self.is_opposite_color(piece, square).unwrap() {
-                    println!("we can attack as we are different colours");
+                    // println!("we can attack as we are different colours");
                     false
                 } else {
-                    println!("we can not attack as we are the same color, BLOCKED");
+                    // println!("we can not attack as we are the same color, BLOCKED");
                     true
                 }
             } else {
                 panic!("should not be possible")
             }
         } else {
-            println!("square is not in middle of path and nothing is here");
+            // println!("square is not in middle of path and nothing is here");
             false
         }
     }
@@ -748,8 +772,13 @@ impl Board {
         // this should always be done after an isvalid call, this function trusts the move is valid and executes the move no matter how dumb is it
         if King::is_castling(&m) {
             self.do_move(King::get_rooks_move_for_castle(&m).expect("as we're in do_move, I can huck anything"))
+        } else if self.check_en_passant(&&m).is_ok() {
+            let target = Pawn::get_en_passant_target(&m);
+            self.squares[target.x as usize][target.y as usize] = None;
         }
-        let Move { from, to, piece: promotion } = m;
+
+
+        let Move { from, to, promoted: promotion, .. } = m;
         {
             let piece = self.get_piece_from(&from).expect("this should really be a valid move");
             if let Some(promotion) = promotion {
@@ -760,7 +789,8 @@ impl Board {
         }
         self.squares[from.x as usize][from.y as usize] = None;
     }
-    fn is_valid_king_move(&self, m: &Move, p1: &Color) -> Result<(), FailReason> {
+
+    fn is_valid_king_move(&self, m: &Move) -> Result<(), FailReason> {
         if King::is_castling(m) {
             if self.past_moves.iter().any(|past_move| { past_move.to == m.from || past_move.from == m.from }) {
                 return Err(FailReason::ImpossibleMove(String::from("cannot castle, king has already moved")));
@@ -772,6 +802,13 @@ impl Board {
             }
         }
         Ok(())
+    }
+    fn undo_last_move(&mut self) {
+        let last_move = self.past_moves.pop_front().expect("if we're undoing moves, there should have been one prior");
+        self.do_move(Move::new(last_move.to, last_move.from))
+    }
+    fn is_in_check(&self, _c: &Color) -> bool {
+        false
     }
 }
 
@@ -807,14 +844,14 @@ impl Pawn {
     fn squares_moved(m: Move, c: &Color) -> Result<Vec<Location>, FailReason> {
         let Move { from, to, .. } = m;
         match (from - to).as_tup() {
-            (0, y @ 1) | (0, y @ -1) => {
+            (0, 1) | (0, -1) => {
                 if Pawn::is_right_direction(m, c) {
                     Ok(to.locations_between(from).unwrap())
                 } else {
                     Err(FailReason::ImpossibleMove(String::from("invalid move for a pawn, must move forward")))
                 }
             }
-            (0, y @ 2) | (0, y @ -2) => {
+            (0, 2) | (0, -2) => {
                 if Pawn::is_in_original_position(from, c) {
                     Ok(to.locations_between(from).unwrap())
                 } else {
@@ -829,6 +866,10 @@ impl Pawn {
                 }
             }
         }
+    }
+
+    fn get_en_passant_target(pawn_move: &Move) -> Location {
+        Location::new(pawn_move.to.x, pawn_move.from.y)
     }
 
     fn is_attacking_validly(m: Move, c: &Color) -> bool {
