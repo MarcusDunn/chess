@@ -233,17 +233,8 @@ fn test_en_pessant_legal() {
     board.place(piece, starting_attacker);
     board.place(target, starting_target);
 
-    board.make_move(Move {
-        from: starting_target,
-        to: ending_target,
-        piece: None,
-    }).unwrap();
-
-    board.make_move(Move {
-        from: starting_attacker,
-        to: ending_attacker,
-        piece: None,
-    }).unwrap();
+    board.make_move(Move::new(starting_target, ending_target)).unwrap();
+    board.make_move(Move::new(starting_attacker, ending_attacker)).unwrap();
 
     board.get_piece_from(&ending_target).is_none();
 }
@@ -260,11 +251,7 @@ fn test_en_pessant_illegal() {
     board.place(piece, starting_attacker);
     board.place(target, starting_target);
 
-    board.make_move(Move {
-        from: starting_attacker,
-        to: ending_attacker,
-        piece: None,
-    }).unwrap_err();
+    board.make_move(Move::new(starting_attacker, ending_attacker)).unwrap_err();
 }
 
 #[test]
@@ -308,6 +295,108 @@ fn test_move_knight_illegal_1() {
     Tester::place_and_move_illegal(piece, from, to, None);
 }
 
+#[test]
+fn test_castle_king_side_legal_1() {
+    let mut board = Board::new();
+    let king = Piece::King(Color::White);
+    let rook = Piece::Rook(Color::White);
+    board.place(rook, Location { x: 7, y: 0 });
+    board.place(king, Location { x: 4, y: 0 });
+    board.make_move(Move {
+        from: Location { x: 4, y: 0 },
+        to: Location { x: 6, y: 0 },
+        piece: None,
+    }).unwrap();
+
+    match board.get_piece_from(&Location { x: 6, y: 0 }).unwrap() {
+        Piece::King(_) => {}
+        _ => panic!("king should be here post-castle")
+    };
+
+    match board.get_piece_from(&Location { x: 5, y: 0 }).unwrap() {
+        Piece::Rook(_) => {}
+        _ => panic!("rook should be here post-castle")
+    };
+}
+
+#[test]
+fn test_castle_king_side_illegal_1() {
+    let mut board = Board::new();
+    let king = Piece::King(Color::White);
+    let rook = Piece::Rook(Color::White);
+    board.place(rook, Location { x: 7, y: 0 });
+    board.place(king, Location { x: 4, y: 0 });
+
+    board.make_move(Move {
+        from: Location { x: 4, y: 0 },
+        to: Location { x: 5, y: 0 },
+        piece: None,
+    }).unwrap();
+
+    board.make_move(Move {
+        from: Location { x: 5, y: 0 },
+        to: Location { x: 4, y: 0 },
+        piece: None,
+    }).unwrap();
+
+    board.make_move(Move {
+        from: Location { x: 4, y: 0 },
+        to: Location { x: 6, y: 0 },
+        piece: None,
+    }).unwrap_err();
+}
+
+#[test]
+fn test_castle_queen_side_illegal_1() {
+    let mut board = Board::new();
+    let king = Piece::King(Color::Black);
+    let rook = Piece::Rook(Color::Black);
+    board.place(rook, Location { x: 0, y: 7 });
+    board.place(king, Location { x: 4, y: 7 });
+
+    board.make_move(Move {
+        from: Location { x: 4, y: 7 },
+        to: Location { x: 4, y: 6 },
+        piece: None,
+    }).unwrap();
+
+    board.make_move(Move {
+        from: Location { x: 4, y: 6 },
+        to: Location { x: 4, y: 7 },
+        piece: None,
+    }).unwrap();
+
+    board.make_move(Move {
+        from: Location { x: 4, y: 6 },
+        to: Location { x: 2, y: 6 },
+        piece: None,
+    }).unwrap_err();
+}
+
+#[test]
+fn test_castle_queen_side_legal_1() {
+    let mut board = Board::new();
+    let king = Piece::King(Color::Black);
+    let rook = Piece::Rook(Color::Black);
+    board.place(rook, Location { x: 0, y: 7 });
+    board.place(king, Location { x: 4, y: 7 });
+    board.make_move(Move {
+        from: Location { x: 4, y: 0 },
+        to: Location { x: 2, y: 0 },
+        piece: None,
+    }).unwrap();
+
+    match board.get_piece_from(&Location { x: 2, y: 7 }).unwrap() {
+        Piece::King(_) => {}
+        _ => panic!("king should be here post-castle")
+    };
+
+    match board.get_piece_from(&Location { x: 3, y: 7 }).unwrap() {
+        Piece::Rook(_) => {}
+        _ => panic!("rook should be here post-castle")
+    };
+}
+
 struct Tester;
 
 impl Tester {
@@ -332,12 +421,17 @@ impl Tester {
     fn squares_moved(piece: Piece, from: Location, to: Location, expected: Vec<Location>) {
         let mut board = Board::new();
         board.place(piece, from).unwrap();
+        let mut expected_sorted = expected.clone();
+        expected_sorted.sort();
+        let mut result_sorted = board.get_piece_from(&from)
+            .unwrap()
+            .squares_moved_over(Move::new(from, to))
+            .unwrap();
+        result_sorted.sort();
+
         assert_eq!(
-            expected,
-            board.get_piece_from(&from)
-                .unwrap()
-                .squares_moved_over(Move::new(from, to))
-                .unwrap()
+            expected_sorted,
+            result_sorted
         )
     }
 
@@ -396,7 +490,7 @@ impl Move {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Ord, PartialOrd, PartialEq, Eq)]
 struct Location {
     x: i32,
     y: i32,
@@ -415,11 +509,20 @@ impl Location {
         let (x, y) = self.as_tup();
         x >= 0 && x <= 7 && y >= 0 && y <= 7
     }
-}
 
-impl PartialEq for Location {
-    fn eq(&self, other: &Self) -> bool {
-        self.x == other.x && self.y == other.y
+    fn locations_between(&self, dest: Location) -> Result<Vec<Location>, FailReason> {
+        let m = Move {
+            to: dest,
+            from: self.clone(),
+            piece: None,
+        };
+        if let Ok(rook_result) = Rook::squares_moved(m, &Color::White) {
+            Ok(rook_result)
+        } else if let Ok(bishop_result) = Bishop::squares_moved(m, &Color::White) {
+            Ok(bishop_result)
+        } else {
+            Err(FailReason::ImpossibleMove(String::from("invalid call to locations_between, we can only do queen-like moves")))
+        }
     }
 }
 
@@ -488,12 +591,13 @@ impl Add for Location {
 }
 
 #[derive(Debug, PartialOrd, PartialEq)]
-enum FailReason {
+enum FailReason { // refactor to &str
     ImpossibleMove(String),
     NoPieceHere(String),
     Blocked(String),
     OutOfBounds(String),
     NeedPromotion(String),
+    BadFunctionCall(String),
 }
 
 impl From<NoneError> for FailReason {
@@ -532,7 +636,6 @@ impl Board {
 
     fn is_valid_move(&self, m: Move) -> Result<(), FailReason> {
         Board::do_bounds_check(m)?;
-        //TODO add special behavior for special moves like castling, en pessant, promoting
         let piece = self.get_piece_from(&m.from)?;
         self.do_piece_specific_checks(&m, piece)?;
         let blocked = piece.squares_moved_over(m)?.iter()
@@ -549,6 +652,7 @@ impl Board {
     fn do_piece_specific_checks(&self, m: &Move, piece: Piece) -> Result<(), FailReason> {
         match piece {
             Piece::Pawn(c) => self.is_valid_pawn_move(&m, &c),
+            Piece::King(c) => self.is_valid_king_move(&m, &c),
             _ => Ok(())
         }
     }
@@ -563,9 +667,8 @@ impl Board {
             return Err(FailReason::NeedPromotion(String::from("the pawn moved to the last row, but we dont know what you want to promote it to")));
         } else if Pawn::is_attacking_validly(*m, &c) {
             println!("2");
-            // do enpassent check here
             let target = match self.get_piece_from(&m.to) {
-                None => return Err(FailReason::NoPieceHere(String::from("no peice for the pawn to attack"))),
+                None => return self.check_en_passant(&m),
                 Some(target) => target
             };
             println!("hello! {:?}", target);
@@ -578,6 +681,27 @@ impl Board {
         } else {
             println!("3");
             Ok(())
+        }
+    }
+
+    fn check_en_passant(&self, m: &&Move) -> Result<(), FailReason> {
+        match self.past_moves.back() {
+            None => { Err(FailReason::ImpossibleMove(String::from("can only en passant a pawn that just moved"))) }
+            Some(last_move) => {
+                if (last_move.to - last_move.from).as_abs_tup() == (0, 2) && self.is_opposite_color(self.get_piece_from(&last_move.to)?, &m.from)? {
+                    match self.get_piece_from(&last_move.to) {
+                        None => { panic!("there should be a piece here") }
+                        Some(p) => {
+                            match p {
+                                Piece::Pawn(_) => { Ok(()) }
+                                _ => Err(FailReason::ImpossibleMove(String::from("piece we're trying to en passant is not a pawn")))
+                            }
+                        }
+                    }
+                } else {
+                    Err(FailReason::ImpossibleMove(String::from("last move was not a opposite colored pawn moving two spaces forward")))
+                }
+            }
         }
     }
 
@@ -656,6 +780,19 @@ impl Board {
         }
         self.squares[from.x as usize][from.y as usize] = None;
     }
+    fn is_valid_king_move(&self, m: &Move, p1: &Color) -> Result<(), FailReason> {
+        if King::is_castling(m) {
+            if self.past_moves.iter().any(|past_move| {past_move.to == m.from || past_move.from == m.from}) {
+                return Err(FailReason::ImpossibleMove(String::from("cannot castle, king has already moved")))
+            } else {
+                let rook_location = King::get_rooks_location_for_castle(m).expect("already checked king was castling");
+                if self.past_moves.iter().any(|past_move| {past_move.from == rook_location || past_move.to == rook_location}) {
+                    return Err(FailReason::ImpossibleMove(String::from("cannot castle, rook has already moved")))
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -692,23 +829,22 @@ impl Pawn {
         match (from - to).as_tup() {
             (0, y @ 1) | (0, y @ -1) => {
                 if Pawn::is_right_direction(m, c) {
-                    Ok(vec![from, to])
+                    Ok(to.locations_between(from).unwrap())
                 } else {
                     Err(FailReason::ImpossibleMove(String::from("invalid move for a pawn, must move forward")))
                 }
             }
             (0, y @ 2) | (0, y @ -2) => {
                 if Pawn::is_in_original_position(from, c) {
-                    Ok(vec![from, from + Location { x: 0, y: y / 2 }, to])
+                    Ok(to.locations_between(from).unwrap())
                 } else {
                     Err(FailReason::ImpossibleMove(String::from("invalid move for a pawn, cannot move two forward if already moved")))
                 }
             }
             (x, y) => {
                 if Pawn::moved_one_diagonal(x, y) && Pawn::is_attacking_validly(m, c) {
-                    Ok(vec![from, to])
+                    Ok(to.locations_between(from).unwrap())
                 } else {
-                    println!("{:?}, {:?}", m, *c);
                     Err(FailReason::ImpossibleMove(String::from("invalid move for a pawn")))
                 }
             }
@@ -717,15 +853,13 @@ impl Pawn {
 
     fn is_attacking_validly(m: Move, c: &Color) -> bool {
         let Location { x: diff_x, y: diff_y } = m.from - m.to;
-        if diff_x.abs() == 1 && diff_y.abs() == 1 {
-            match c {
-                Color::White => diff_y == -1,
-                Color::Black => diff_y == 1,
-            }
-        } else {
-            false
+
+        diff_x.abs() == 1 && diff_y.abs() == 1 && match c {
+            Color::White => diff_y == -1,
+            Color::Black => diff_y == 1,
         }
     }
+
 
     fn is_right_direction(m: Move, color: &Color) -> bool {
         let Location { x: _, y } = m.from - m.to;
@@ -752,8 +886,27 @@ impl King {
         let Move { from, to, .. } = m;
 
         match ((to - from).x.abs(), (to - from).y.abs()) {
-            (1, 0) | (0, 1) | (1, 1) => { Ok(vec!(m.from, m.to)) }
-            _ => Err(FailReason::ImpossibleMove(String::from("invalid move for a knight")))
+            (1, 0) | (0, 1) | (1, 1) => Ok(to.locations_between(from).expect("this is a valid queen move and thus should be a valid king move as moves available to king are a subset of moves available to queen")),
+            (2, 0) => Ok(to.locations_between(from).expect("this is a valid queen move and thus should be a valid king move as moves available to king are a subset of moves available to queen")),
+            _ => Err(FailReason::ImpossibleMove(String::from("invalid move for a king")))
+        }
+    }
+
+    fn is_castling(m: &Move) -> bool {
+        match (m.to - m.from).as_abs_tup() {
+            (2, 0) => true,
+            _ => false
+        }
+    }
+
+    fn get_rooks_location_for_castle(m: &Move) -> Result<Location, FailReason> {
+        if !Self::is_castling(m) {
+            return Err(FailReason::BadFunctionCall(String::from("called get_rooks_location_for_castle when not castling")))
+        }
+        match m.to.as_tup() {
+            (2, y) => Ok(Location{x: 0, y}),
+            (6, y) => Ok(Location{x: 7, y}),
+            _ => unreachable!("as we're castling, it should be one of these")
         }
     }
 }
