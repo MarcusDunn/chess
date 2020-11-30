@@ -381,17 +381,17 @@ fn test_castle_queen_side_legal_1() {
     board.place(rook, Location { x: 0, y: 7 });
     board.place(king, Location { x: 4, y: 7 });
     board.make_move(Move {
-        from: Location { x: 4, y: 0 },
-        to: Location { x: 2, y: 0 },
+        from: Location { x: 4, y: 7 },
+        to: Location { x: 2, y: 7 },
         piece: None,
-    }).unwrap();
+    }).expect("should be a valid castle");
 
-    match board.get_piece_from(&Location { x: 2, y: 7 }).unwrap() {
+    match board.get_piece_from(&Location { x: 2, y: 7 }).expect("king should be here") {
         Piece::King(_) => {}
         _ => panic!("king should be here post-castle")
     };
 
-    match board.get_piece_from(&Location { x: 3, y: 7 }).unwrap() {
+    match board.get_piece_from(&Location { x: 3, y: 7 }).expect("rook should be here ") {
         Piece::Rook(_) => {}
         _ => panic!("rook should be here post-castle")
     };
@@ -760,6 +760,7 @@ impl Board {
     }
 
     fn get_piece_from(&self, square: &Location) -> Option<Piece> {
+        if self.squares[square.x as usize][square.y as usize].is_none() {println!("didnt find something at {:?}", square)};
         self.squares[square.x as usize][square.y as usize]
     }
 
@@ -769,6 +770,9 @@ impl Board {
 
     fn do_move(&mut self, m: Move) {
         // this should always be done after an isvalid call, this function trusts the move is valid and executes the move no matter how dumb is it
+        if King::is_castling(&m) {
+            self.do_move(King::get_rooks_move_for_castle(&m).expect("as we're in do_move, I can huck anything"))
+        }
         let Move { from, to, piece: promotion } = m;
         {
             let piece = self.get_piece_from(&from).expect("this should really be a valid move");
@@ -893,20 +897,30 @@ impl King {
     }
 
     fn is_castling(m: &Move) -> bool {
-        match (m.to - m.from).as_abs_tup() {
-            (2, 0) => true,
+        match (m.to.as_tup(), m.from.as_tup()) {
+            ((2, _), (4, _)) => true,
+            ((6, _), (4, _)) => true,
             _ => false
         }
     }
 
-    fn get_rooks_location_for_castle(m: &Move) -> Result<Location, FailReason> {
-        if !Self::is_castling(m) {
-            return Err(FailReason::BadFunctionCall(String::from("called get_rooks_location_for_castle when not castling")))
-        }
-        match m.to.as_tup() {
+    fn get_rooks_move_for_castle(kings_move: &Move) -> Result<Move, FailReason> {
+        let from = King::get_rooks_location_for_castle(kings_move)?;
+
+        let to = match kings_move.to.as_tup() {
+            (2, y) => Location {x: 3, y },
+            (6, y) =>  Location {x: 5, y },
+            _ => unreachable!("as we're castling, it should be one of these")
+        };
+        Ok(Move::new(from, to))
+    }
+
+    fn get_rooks_location_for_castle(kings_move: &Move) -> Result<Location, FailReason> {
+        assert!(King::is_castling(kings_move), "called get_rooks_location_for_castle when not castling");
+        match kings_move.to.as_tup() {
             (2, y) => Ok(Location{x: 0, y}),
             (6, y) => Ok(Location{x: 7, y}),
-            _ => unreachable!("as we're castling, it should be one of these")
+            _ => unreachable!(format!("as we're castling, it should be one of these, instead the kings destination is {:?}", kings_move.to))
         }
     }
 }
