@@ -451,8 +451,6 @@ struct Move {
 }
 
 
-
-
 impl Move {
     fn new(from: Location, to: Location) -> Self {
         Move {
@@ -755,7 +753,6 @@ impl Board {
     }
 
     fn get_piece_from(&self, square: &Location) -> Option<Piece> {
-        if self.squares[square.x as usize][square.y as usize].is_none() { println!("didnt find something at {:?}", square) };
         self.squares[square.x as usize][square.y as usize]
     }
 
@@ -798,12 +795,42 @@ impl Board {
     fn undo_last_move(&mut self) {
         let (last_move, _) = self.past_moves.pop_front().expect("if we're undoing moves, there should have been one prior");
         self.do_move(Move::new(last_move.to, last_move.from));
-        let (_, taken_piece) = self.past_moves.iter().find(|(m, p)| {m.to == last_move.to});
-        self.place(taken_piece, last_move.to);
+        let (_, taken_piece) = self.past_moves.iter().find(|(m, p)| { m.to == last_move.to }).unwrap();
+        self.place(*taken_piece, last_move.to);
     }
 
-    fn is_in_check(&self, _c: &Color) -> bool {
-        false
+    fn is_in_check(&self, c: &Color) -> bool {
+        if let Some(king_pos) = self.find_king(*c) {
+            for x in 0..8 {
+                for y in 0..8 {
+                    if self.is_valid_move(Move::new(Location::new(x, y), king_pos)).is_ok() {
+                        return false;
+                    } else {
+                        continue;
+                    };
+                };
+            };
+            return true;
+        } else {
+            false // for testing
+        }
+    }
+
+    fn find_king(&self, color: Color) -> Option<Location> {
+        for x in 0..8 {
+            for y in 0..8 {
+                if let Some(Piece::King(king_color)) = self.get_piece_from(&Location::new(x, y)) {
+                    if matches!(color, king_color) {
+                        Some(Location { x, y })
+                    } else {
+                        continue;
+                    };
+                } else {
+                    continue;
+                };
+            };
+        };
+        None
     }
 }
 
