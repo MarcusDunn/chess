@@ -1,5 +1,7 @@
 mod test {
     use crate::chess::*;
+    use crate::location::location::Location;
+    use crate::board::board::Board;
 
     #[test]
     fn test_create_game() {
