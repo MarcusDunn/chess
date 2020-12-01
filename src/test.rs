@@ -1,7 +1,8 @@
 mod test {
-    use crate::chess::*;
-    use crate::location::location::Location;
     use crate::board::board::Board;
+    use crate::chess::{Piece, Color, Movable};
+    use crate::location::location::Location;
+    use crate::chess_move::chess_move::Move;
 
     #[test]
     fn test_create_game() {

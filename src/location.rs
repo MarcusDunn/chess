@@ -1,6 +1,7 @@
 pub(crate) mod location {
-    use crate::chess::{Move, FailReason, Color, Rook, Bishop};
+    use crate::chess::{FailReason, Color, Rook, Bishop};
     use std::ops::{Sub, Add};
+    use crate::chess_move::chess_move::Move;
 
     #[derive(Copy, Clone, Debug, Ord, PartialOrd, PartialEq, Eq)]
     pub struct Location {

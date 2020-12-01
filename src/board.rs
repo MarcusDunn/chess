@@ -1,7 +1,8 @@
 pub mod board {
-    use crate::chess::{FailReason, Piece, Move, Movable, Color, Pawn, King};
+    use crate::chess::{FailReason, Piece, Movable, Color, Pawn, King};
     use crate::location::location::Location;
     use std::collections::LinkedList;
+    use crate::chess_move::chess_move::Move;
 
     pub struct Board {
         squares: [[Option<Piece>; 8]; 8],

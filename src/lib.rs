@@ -4,47 +4,14 @@
 mod test;
 mod location;
 mod board;
+mod chess_move;
 
 mod chess {
 
-    use std::collections::LinkedList;
     use std::option::NoneError;
 
     use crate::location::location::Location;
-
-    #[derive(Copy, Clone, Debug)]
-    pub struct Move {
-        pub from: Location,
-        pub to: Location,
-        pub promoted: Option<Piece>,
-    }
-
-
-    impl Move {
-        pub fn new(from: Location, to: Location) -> Self {
-            Move {
-                from,
-                to,
-                promoted: None,
-            }
-        }
-
-        pub fn new_with_opt_piece(from: Location, to: Location, piece: Option<Piece>) -> Self {
-            Move {
-                from,
-                to,
-                promoted: piece,
-            }
-        }
-
-        pub fn new_with_piece(from: Location, to: Location, piece: Piece) -> Self {
-            Move {
-                from,
-                to,
-                promoted: Some(piece),
-            }
-        }
-    }
+    use crate::chess_move::chess_move::Move;
 
     #[derive(Copy, Clone, Debug, PartialEq)]
     pub enum Piece {
