@@ -656,15 +656,12 @@ impl Board {
 
     fn is_valid_pawn_move(&self, m: &Move, c: &Color) -> Result<(), FailReason> {
         if Board::is_promotion(*m) && m.promoted.is_none() {
-            println!("1");
             return Err(FailReason::NeedPromotion(String::from("the pawn moved to the last row, but we dont know what you want to promote it to")));
         } else if Pawn::is_attacking_validly(*m, &c) {
-            println!("2");
             let target = match self.get_piece_from(&m.to) {
                 None => return self.check_en_passant(&m),
                 Some(target) => target
             };
-            println!("hello! {:?}", target);
             match self.is_opposite_color(target, &m.from) {
                 Ok(is_opp) if is_opp => Ok(()),
                 Ok(is_opp) if !is_opp => Err(FailReason::ImpossibleMove(String::from("not a valid move for a pawn, you've tried moving diagonally into your own piece"))),
@@ -672,7 +669,6 @@ impl Board {
                 _ => unreachable!("covered both true and false cases for Ok and all Err")
             }
         } else {
-            println!("3");
             Ok(())
         }
     }
@@ -795,22 +791,23 @@ impl Board {
     fn undo_last_move(&mut self) {
         let (last_move, _) = self.past_moves.pop_front().expect("if we're undoing moves, there should have been one prior");
         self.do_move(Move::new(last_move.to, last_move.from));
-        let (_, taken_piece) = self.past_moves.iter().find(|(m, p)| { m.to == last_move.to }).unwrap();
-        self.place(*taken_piece, last_move.to);
+        if let Some((_, taken_piece)) = self.past_moves.iter().find(|(m, _)| { m.to == last_move.to }) {
+            self.place(*taken_piece, last_move.to).expect("just moved a piece out of this position");
+        }
     }
 
     fn is_in_check(&self, c: &Color) -> bool {
         if let Some(king_pos) = self.find_king(*c) {
             for x in 0..8 {
                 for y in 0..8 {
-                    if self.is_valid_move(Move::new(Location::new(x, y), king_pos)).is_ok() {
-                        return false;
+                    if self.get_piece_from(&Location::new(x, y)).unwrap_or(Piece::Rook(*c)).color() != c && self.is_valid_move(Move::new(Location::new(x, y), king_pos)).is_ok() {
+                        return true;
                     } else {
                         continue;
                     };
                 };
             };
-            return true;
+            return false;
         } else {
             false // for testing
         }
@@ -820,8 +817,8 @@ impl Board {
         for x in 0..8 {
             for y in 0..8 {
                 if let Some(Piece::King(king_color)) = self.get_piece_from(&Location::new(x, y)) {
-                    if matches!(color, king_color) {
-                        Some(Location { x, y })
+                    if color == king_color {
+                        return Some(Location { x, y })
                     } else {
                         continue;
                     };
